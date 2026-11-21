@@ -1,0 +1,31 @@
+# 來源素材（體積大，不進版控；App 用的成品由 tools/import_assets.py 產生到 app/assets/）
+/籤詩/
+/籤詩_統一規格/
+/素材/
+/Logo/
+
+# Flutter / Dart
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/local.properties
+*.iml
+.idea/
+
+# Node / Vercel
+node_modules/
+.vercel/
+api/dist/
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+Thumbs.db
+.DS_Store

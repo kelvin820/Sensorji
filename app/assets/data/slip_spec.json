@@ -1,0 +1,15 @@
+{
+ "canvas": [
+  1080,
+  1620
+ ],
+ "frame_box": [
+  40,
+  44,
+  1040,
+  1506
+ ],
+ "paper": "#F2EADB",
+ "ink": "#1E1A16",
+ "note": "frame_box = outer frame (title box top to main box bottom) in @3x pixels"
+}

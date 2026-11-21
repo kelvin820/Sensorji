@@ -1,0 +1,99 @@
+/// 籤詩資料模型（BUILD_PLAN 第 3 節）。
+library;
+
+enum Deck {
+  sensoji('淺草寺觀音百籤', 100),
+  tw60('台灣六十甲子籤', 60);
+
+  const Deck(this.label, this.size);
+  final String label;
+  final int size;
+}
+
+class Poem {
+  const Poem({
+    required this.deck,
+    required this.number,
+    required this.lines,
+    this.rank,
+    this.ganzhi,
+    this.image,
+  });
+
+  final Deck deck;
+  final int number;
+  final List<String> lines;
+
+  /// 淺草寺：吉凶（大吉、吉、半吉、小吉、末小吉、末吉、凶）。
+  final String? rank;
+
+  /// 六十甲子籤：干支。
+  final String? ganzhi;
+
+  /// 淺草寺：正版籤紙圖（asset 路徑）。
+  final String? image;
+
+  bool get isBad => rank == '凶';
+
+  /// 籤號後面括號裡顯示的字：吉凶或干支。
+  String get tag => rank ?? ganzhi ?? '';
+
+  factory Poem.sensoji(Map<String, dynamic> j) => Poem(
+        deck: Deck.sensoji,
+        number: j['number'] as int,
+        rank: j['rank'] as String,
+        lines: (j['lines'] as List).cast<String>(),
+        image: j['image'] as String,
+      );
+
+  factory Poem.tw60(Map<String, dynamic> j) => Poem(
+        deck: Deck.tw60,
+        number: j['number'] as int,
+        ganzhi: j['ganzhi'] as String,
+        lines: (j['lines'] as List).cast<String>(),
+      );
+}
+
+class Category {
+  const Category({
+    required this.id,
+    required this.label,
+    required this.sensojiItem,
+    required this.tw60Item,
+  });
+
+  final String id;
+  final String label;
+
+  /// 對應淺草寺判語的分項名稱。
+  final String sensojiItem;
+
+  /// 六十甲子籤的分項名稱（只給 LLM 參考）。
+  final String tw60Item;
+
+  String itemFor(Deck deck) => deck == Deck.sensoji ? sensojiItem : tw60Item;
+
+  factory Category.fromJson(Map<String, dynamic> j) => Category(
+        id: j['id'] as String,
+        label: j['label'] as String,
+        sensojiItem: j['sensoji'] as String,
+        tw60Item: j['tw60'] as String,
+      );
+}
+
+class Judgment {
+  const Judgment({required this.number, required this.original, required this.items});
+
+  final int number;
+  final String original;
+  final Map<String, String> items;
+
+  /// 該分項判語；缺分項（第 28 籤沒有「旅行」）時回傳整段原文。
+  String forItem(String item) => items[item] ?? original;
+
+  factory Judgment.fromJson(Map<String, dynamic> j) => Judgment(
+        number: j['number'] as int,
+        original: j['judgment_original'] as String,
+        items: (j['items'] as Map).cast<String, String>(),
+      );
+}

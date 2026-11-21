@@ -1,0 +1,53 @@
+{
+ "categories": [
+  {
+   "id": "wish",
+   "label": "心願・願望",
+   "sensoji": "願望",
+   "tw60": "作事"
+  },
+  {
+   "id": "love",
+   "label": "感情・婚姻",
+   "sensoji": "婚姻",
+   "tw60": "婚姻"
+  },
+  {
+   "id": "work",
+   "label": "工作・事業",
+   "sensoji": "願望",
+   "tw60": "功名・求財"
+  },
+  {
+   "id": "health",
+   "label": "健康・病人",
+   "sensoji": "病人",
+   "tw60": "疾病"
+  },
+  {
+   "id": "lost",
+   "label": "失物",
+   "sensoji": "失物",
+   "tw60": "失物"
+  },
+  {
+   "id": "wait",
+   "label": "等待的人",
+   "sensoji": "待人",
+   "tw60": "尋人"
+  },
+  {
+   "id": "move",
+   "label": "搬家・新居",
+   "sensoji": "新居・遷移",
+   "tw60": "移居"
+  },
+  {
+   "id": "trip",
+   "label": "旅行・出行",
+   "sensoji": "旅行",
+   "tw60": "出外"
+  }
+ ],
+ "note": "sensoji 欄對應 sensoji_judgments.json 的 items 鍵；tw60 只是給 LLM 的分項名稱，不附判語"
+}
