@@ -22,9 +22,13 @@ SRC_SLIPS = ROOT / "籤詩_統一規格"
 SRC_DATA = ROOT / "data"
 SRC_LOGO = ROOT / "Logo" / "0e136df7-a4d3-4b35-b17a-1adbd804d960.png"
 OUT = ROOT / "app" / "assets"
+WEB = ROOT / "app" / "web"
 
 INK = (0x2A, 0x22, 0x1C)
 OBJECT_SKIP = ("_3d", "OB01_left", "OB01_right")
+# 無字的 OB01 已由 OB01_raimon（首頁）／OB01_sei（好籤）取代，字都合成在圖上。
+OBJECT_SKIP_EXACT = ("OB01",)
+PAPER = (0xF1, 0xEA, 0xDC)  # App 底色，也是自適應／maskable 圖示的底色
 SPRITE_MAX = 256
 WEBP_Q = 88
 
@@ -105,7 +109,7 @@ def import_objects() -> None:
     out = reset(OUT / "objects")
     n = 0
     for src in sorted((SRC_PROCESSED / "objects").glob("OB*.png")):
-        if any(s in src.stem for s in OBJECT_SKIP):
+        if src.stem in OBJECT_SKIP_EXACT or any(s in src.stem for s in OBJECT_SKIP):
             continue
         to_webp(src, out / f"{src.stem}.webp")
         n += 1
@@ -147,9 +151,30 @@ def import_brand() -> None:
         white.putalpha(ink.getchannel("A"))
         white.save(out / "logo_light.png")
     obj = SRC_PROCESSED / "objects"
-    shutil.copy(obj / "IC01_icon_1024.png", out / "icon_1024.png")
-    shutil.copy(obj / "IC01_lantern_cutout.png", out / "icon_foreground.png")
+    # App 圖示：「成」燈籠（舊的 IC01_icon_1024／IC01_lantern_cutout 不再使用）。
+    # Android 圖示由 flutter_launcher_icons 讀這兩張產生（設定在 app/pubspec.yaml）。
+    shutil.copy(obj / "IC01_icon_1024_sei.png", out / "icon_1024.png")
+    shutil.copy(obj / "IC01_adaptive_fg_sei.png", out / "icon_foreground.png")
     log("brand: 4 files")
+
+
+def import_web_icons() -> None:
+    """Web／PWA：一般圖示與 favicon 用完整圖示縮小；maskable 用前景圖疊在 #F1EADC 底上。"""
+    obj = SRC_PROCESSED / "objects"
+    icons = WEB / "icons"
+    icons.mkdir(parents=True, exist_ok=True)
+    with Image.open(obj / "IC01_icon_1024_sei.png") as im:
+        full = im.convert("RGB")
+    with Image.open(obj / "IC01_adaptive_fg_sei.png") as im:
+        fg = im.convert("RGBA")
+    mask = Image.new("RGBA", fg.size, PAPER + (255,))
+    mask.alpha_composite(fg)
+    mask = mask.convert("RGB")
+    for size in (192, 512):
+        full.resize((size, size), Image.LANCZOS).save(icons / f"Icon-{size}.png", optimize=True)
+        mask.resize((size, size), Image.LANCZOS).save(icons / f"Icon-maskable-{size}.png", optimize=True)
+    full.resize((32, 32), Image.LANCZOS).save(WEB / "favicon.png", optimize=True)
+    log("web icons: 5 files")
 
 
 def main() -> int:
@@ -161,6 +186,7 @@ def main() -> int:
     import_sprites()
     import_textures()
     import_brand()
+    import_web_icons()
     total = sum(f.stat().st_size for f in OUT.rglob("*") if f.is_file())
     log(f"total: {total / 1e6:.1f} MB in {OUT}")
     return 0

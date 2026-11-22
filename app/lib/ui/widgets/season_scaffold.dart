@@ -17,6 +17,7 @@ class SeasonScaffold extends StatelessWidget {
     this.smoke = false,
     this.overlay = true,
     this.appBar,
+    this.foreground,
   });
 
   final Season season;
@@ -26,6 +27,9 @@ class SeasonScaffold extends StatelessWidget {
   final bool smoke;
   final bool overlay;
   final PreferredSizeWidget? appBar;
+
+  /// 蓋在整個畫面最上層的裝飾（例如好籤的「成」燈籠），以全螢幕座標排版。
+  final Widget? foreground;
   final Widget child;
 
   @override
@@ -69,6 +73,7 @@ class SeasonScaffold extends StatelessWidget {
               child: SafeArea(child: child),
             ),
           ),
+          ?foreground,
         ],
       ),
     );

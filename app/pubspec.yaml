@@ -46,6 +46,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -73,3 +74,16 @@ flutter:
     - family: Bakudai
       fonts:
         - asset: assets/fonts/Bakudai.ttf
+
+# App 圖示：「成」燈籠。素材由 tools/import_assets.py 從 素材/processed/objects/IC01_*_sei.png 複製過來。
+# 重新產生：dart run flutter_launcher_icons
+# Web／PWA 圖示（含 maskable）由 tools/import_assets.py 直接產生，這裡不處理。
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/brand/icon_1024.png"
+  adaptive_icon_background: "#F1EADC"
+  adaptive_icon_foreground: "assets/brand/icon_foreground.png"
+  # 前景圖本身已把燈籠放在安全區內（約佔 62%），不要再內縮。
+  adaptive_icon_foreground_inset: 0
+  min_sdk_android: 21

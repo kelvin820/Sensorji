@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,10 +8,12 @@ import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../logic/records.dart';
 import '../widgets/common.dart';
+import '../widgets/lantern.dart';
 import '../widgets/season_scaffold.dart';
 
 /// 06 籤詩（淺草寺：正版籤紙）／06b（六十甲子籤：四句直排）。
 /// 點籤紙 → 背景調暗，浮出紙卡，四句原文與白話一起顯示（BUILD_PLAN 第 6 節 ⑤）。
+/// 淺草寺大吉／吉：右上角降下「成」燈籠（籤紀錄回看時也一樣）。
 class PoemScreen extends StatelessWidget {
   const PoemScreen({super.key, required this.readingId});
   final String readingId;
@@ -24,12 +28,19 @@ class PoemScreen extends StatelessWidget {
     final hasGloss = gloss.length == poem.lines.length;
     final text = Theme.of(context).textTheme;
     const fg = Palette.inkSoft; // 籤詩頁一律是和紙底
+    final good = poem.isGood;
+    // 好籤時籤紙區往下讓出燈籠的高度，燈籠才不會遮到籤紙右上角的籤號與吉凶。
+    final mq = MediaQuery.of(context);
+    final slipTop = mq.viewPadding.top + kToolbarHeight;
+    final reserve = good ? max(0.0, goodLanternBottom(context) - slipTop) : 0.0;
 
     void openGloss([int? line]) =>
         showGloss(context, poem: poem, gloss: gloss, highlight: line);
 
     return SeasonScaffold(
       season: reading.season,
+      // 用籤詩頁外層的 MediaQuery（Scaffold 內的上方留白已含 AppBar 高度）。
+      foreground: good ? MediaQuery(data: mq, child: const GoodLantern()) : null,
       appBar: AppBar(
         title: Text(drawTitle(poem.number, poem.tag)),
         leading: IconButton(
@@ -40,6 +51,7 @@ class PoemScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
+          SizedBox(height: reserve),
           Expanded(
             child: poem.deck == Deck.sensoji
                 ? _SensojiSlip(poem: poem, onTap: hasGloss ? openGloss : null)

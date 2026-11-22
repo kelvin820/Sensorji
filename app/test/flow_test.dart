@@ -12,6 +12,7 @@ import 'package:sensoji/logic/season.dart';
 import 'package:sensoji/logic/settings.dart';
 import 'package:sensoji/logic/voice.dart';
 import 'package:sensoji/main.dart';
+import 'package:sensoji/ui/widgets/lantern.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 固定籤號的抽籤服務，讓流程測試可重現。
@@ -128,6 +129,7 @@ void main() {
     expect(find.text('第 3 籤・凶'), findsOneWidget);
     expect(find.text('請 AI 為我解籤'), findsOneWidget);
     expect(find.text('結籤：把籤繫在籤架上'), findsOneWidget, reason: '凶籤要提供結籤');
+    expect(find.byType(GoodLantern), findsNothing, reason: '凶籤不出現「成」燈籠');
 
     // 逐句白話：點籤紙，四句白話一起浮出；按「收起」關掉。
     await tester.tap(find.byType(InteractiveViewer));
@@ -192,12 +194,63 @@ void main() {
     expect(find.text('第 1 籤・甲子'), findsOneWidget);
     expect(find.text('籤詩參考新港奉天宮版本'), findsOneWidget);
     expect(find.textContaining('結籤'), findsNothing, reason: '六十甲子籤沒有結籤');
+    expect(find.byType(GoodLantern), findsNothing, reason: '六十甲子籤沒有吉凶，不出現「成」燈籠');
 
     // 逐句白話：直接點直排的句子（「日」只出現在第一句）。
     await tester.tap(find.text('日'));
     await tester.pumpAndSettle();
     expect(find.text('太陽一出來，風雲便自然散去。'), findsOneWidget);
     expect(find.text('萬事清淨吉祥，平安有保障。'), findsOneWidget, reason: '四句一起出');
+  });
+
+  /// 首頁 → 點按抽籤 → 籤詩頁。
+  Future<void> drawToPoem(WidgetTester tester) async {
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('心願・願望'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('無法搖晃？點此抽籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('看籤詩'));
+    await tester.pumpAndSettle();
+  }
+
+  for (final (number, rank) in [(1, '大吉'), (4, '吉')]) {
+    testWidgets('好籤（$rank）：籤詩頁出現「成」燈籠，不遮籤紙；紀錄回看也有', (tester) async {
+      final s = await makeServices(FixedDraw(number));
+      await pumpApp(tester, s);
+      await drawToPoem(tester);
+      expect(find.text('第 $number 籤・$rank'), findsOneWidget);
+      expect(find.byType(GoodLantern), findsOneWidget);
+      expect(find.image(const AssetImage('assets/objects/OB01_sei.webp')), findsOneWidget);
+
+      // 燈籠底部在籤紙區（可縮放範圍）之上，放大也不會被燈籠蓋住。
+      final lantern = tester.getRect(find.image(const AssetImage('assets/objects/OB01_sei.webp')));
+      final slip = tester.getRect(find.byType(InteractiveViewer));
+      expect(lantern.bottom, lessThanOrEqualTo(slip.top + 0.5));
+      expect(lantern.width, closeTo(390 * kGoodLanternWidthFactor, 0.5));
+      expect(lantern.right, lessThanOrEqualTo(390));
+
+      // 從籤紀錄回看
+      await tester.tap(find.byTooltip('回首頁'));
+      await tester.pumpAndSettle();
+      expect(find.byType(GoodLantern), findsNothing);
+      await tester.tap(find.text('我的籤紀錄'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('第 $number 籤').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(GoodLantern), findsOneWidget);
+    });
+  }
+
+  testWidgets('首頁燈籠用已寫好「雷門」的圖，不再疊字', (tester) async {
+    final s = await makeServices(FixedDraw(1));
+    await pumpApp(tester, s);
+    expect(find.image(const AssetImage('assets/objects/OB01_raimon.webp')), findsOneWidget);
+    expect(find.text('雷門'), findsNothing);
   });
 
   testWidgets('語音提問：按住音量鍵說話、即時顯示，放開就落籤並填進問題框', (tester) async {

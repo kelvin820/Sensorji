@@ -35,6 +35,10 @@ class Poem {
 
   bool get isBad => rank == '凶';
 
+  /// 好籤（淺草寺百籤的大吉、吉）：籤詩頁會降下「成」燈籠。
+  /// 六十甲子籤沒有吉凶（rank 為 null），不算。
+  bool get isGood => rank == '大吉' || rank == '吉';
+
   /// 籤號後面括號裡顯示的字：吉凶或干支。
   String get tag => rank ?? ganzhi ?? '';
 

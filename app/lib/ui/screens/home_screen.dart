@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/scope.dart';
 import '../../app/theme.dart';
 import '../widgets/common.dart';
+import '../widgets/lantern.dart';
 import '../widgets/season_scaffold.dart';
 
 /// 01 首頁：雷門大燈籠、開始求籤、紀錄、設定。
@@ -73,7 +74,7 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-/// 雷門大燈籠：靜態 PNG 緩慢擺動，「雷門」由 App 疊字。之後換成 Rive lantern.riv。
+/// 雷門大燈籠：OB01_raimon（「雷門」已合成在圖上，App 不疊字），繞頂環中央緩慢擺動。
 class _Lantern extends StatefulWidget {
   const _Lantern();
 
@@ -94,44 +95,37 @@ class _LanternState extends State<_Lantern> with SingleTickerProviderStateMixin 
   @override
   Widget build(BuildContext context) {
     final reduced = MediaQuery.disableAnimationsOf(context);
-    final lantern = LayoutBuilder(
+    return LayoutBuilder(
       builder: (context, box) {
         final h = box.maxHeight * 0.92;
-        return Column(
-          children: [
-            Container(width: 3, height: box.maxHeight * 0.08, color: Palette.ink), // 吊繩
-            SizedBox(
-              height: h,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Image.asset('assets/objects/OB01.webp', height: h),
-                  Text(
-                    '雷門',
-                    style: brush(TextStyle(
-                      fontSize: h * 0.2,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF1B1410),
-                      height: 1,
-                    )),
-                  ),
-                ],
-              ),
+        final rope = box.maxHeight * 0.08;
+        Widget lantern = Image.asset(
+          'assets/objects/OB01_raimon.webp',
+          height: h,
+          width: h / kLanternAspect,
+          semanticLabel: '雷門大燈籠',
+        );
+        if (!reduced) {
+          lantern = AnimatedBuilder(
+            animation: _c,
+            builder: (context, child) => Transform.rotate(
+              angle: sin(_c.value * 2 * pi) * 0.035,
+              alignment: kLanternPivot, // 頂環中央
+              child: child,
             ),
+            child: lantern,
+          );
+        }
+        return Stack(
+          alignment: Alignment.topCenter,
+          clipBehavior: Clip.none,
+          children: [
+            // 吊繩：從上方垂到頂環中央（圖頂有透明邊，要多畫一段才接得上）。
+            Container(width: 3, height: rope + h * kLanternPivotY, color: Palette.ink),
+            Padding(padding: EdgeInsets.only(top: rope), child: lantern),
           ],
         );
       },
-    );
-    if (reduced) return lantern;
-    return AnimatedBuilder(
-      animation: _c,
-      // 旋轉中心在頂端吊繩處
-      builder: (context, child) => Transform.rotate(
-        angle: sin(_c.value * 2 * pi) * 0.035,
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-      child: lantern,
     );
   }
 }
