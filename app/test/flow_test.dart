@@ -12,6 +12,7 @@ import 'package:sensoji/logic/season.dart';
 import 'package:sensoji/logic/settings.dart';
 import 'package:sensoji/logic/voice.dart';
 import 'package:sensoji/main.dart';
+import 'package:sensoji/ui/widgets/cabinet.dart';
 import 'package:sensoji/ui/widgets/lantern.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -121,7 +122,7 @@ void main() {
 
     await tester.tap(find.text('無法搖晃？點此抽籤'));
     await tester.pumpAndSettle();
-    expect(find.text('第三籤'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is DrawerCabinet && w.number == 3), findsOneWidget);
     expect(find.text('家人的身體會好轉嗎'), findsOneWidget, reason: '籤號畫面的問題框');
 
     await tester.tap(find.text('看籤詩'));
@@ -292,7 +293,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('說完了，落籤'));
     await tester.pumpAndSettle();
-    expect(find.text('第一籤'), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is DrawerCabinet && w.number == 1), findsOneWidget);
   });
 
   testWidgets('語音無法使用時改回打字', (tester) async {

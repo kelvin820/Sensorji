@@ -68,18 +68,22 @@ const _numberX = 210.0;
 const _numberTop = 64.0;
 const _numberFont = 44.0;
 
-// ② 的時間軸（0…1）。
-const _slideEnd = 0.32; // 籤筒前傾、籤棒慢慢滑出
-const _outEnd = 0.52; // 滑出一半，接著脫手飛出
+// ② 的時間軸：以毫秒寫，換成 0…1。動作到落定約 2.4 秒；籤號慢慢寫約 1 秒，
+// 寫完再停 1 秒讓人看清楚（使用者回饋：這個畫面要慢一點過場）。
+const _dropMs = 4400.0;
+const _slideEnd = 960 / _dropMs; // 籤筒前傾、籤棒慢慢滑出
+const _outEnd = 1560 / _dropMs; // 滑出一半，接著脫手飛出
+const _canFadeStart = _outEnd + 180 / _dropMs; // 籤棒翻起來後籤筒才淡出
+const _canFadeEnd = _outEnd + 480 / _dropMs;
 const _slideOut1 = 0.3; // 前傾結束時露出的比例
 const _slideOut2 = 0.5; // 脫手時露出的比例
-const _landEnd = 0.80; // 翻轉落定
-const _writeEnd = 0.95; // 籤號寫完（之後停一下）
+const _landEnd = 2400 / _dropMs; // 翻轉落定
+const _writeEnd = 3400 / _dropMs; // 籤號寫完，之後停住
 const _tiltForward = -0.32;
 
 /// 正常與重搖（擲筊失敗後）的落籤長度。
-const kDropDuration = Duration(milliseconds: 3000);
-const kDropDurationQuick = Duration(milliseconds: 1500);
+const kDropDuration = Duration(milliseconds: 4400);
+const kDropDurationQuick = Duration(milliseconds: 2400);
 
 class ShakerState extends State<Shaker> with TickerProviderStateMixin {
   final _physics = ShakerPhysics();
@@ -280,7 +284,7 @@ class ShakerState extends State<Shaker> with TickerProviderStateMixin {
       ));
       // 籤筒回正、往下沉並淡出，讓位給籤棒
       // 先維持不透明（籤棒在筒後面，看起來是從洞口抽出），等籤棒翻起來再快速淡出。
-      final fade = Curves.easeIn.transform(seg(_outEnd + 0.06, _outEnd + 0.16));
+      final fade = Curves.easeIn.transform(seg(_canFadeStart, _canFadeEnd));
       children.add(_canister(angle: canAngle, lift: 50 * aBack, visible: 0, opacity: 1 - fade));
       children.addAll(_numberColumn(seg(_landEnd, _writeEnd)));
     }

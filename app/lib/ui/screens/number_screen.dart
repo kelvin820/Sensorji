@@ -8,6 +8,7 @@ import '../../data/models.dart';
 import '../../logic/draw.dart';
 import '../../logic/records.dart';
 import '../../logic/session.dart';
+import '../widgets/cabinet.dart';
 import '../widgets/season_scaffold.dart';
 import 'ask_screen.dart' show maxQuestionChars;
 
@@ -69,28 +70,7 @@ class _NumberScreenState extends State<NumberScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 300,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Image.asset('assets/objects/OB04_drawer_front.webp', height: 280),
-                // 抽屜面中央是拉環、下方是名牌，籤號放在拉環上方的空白處。
-                Align(
-                  alignment: const Alignment(0, -0.6),
-                  child: Text(
-                  '第${chineseNumber(session.number!)}籤',
-                  style: brush(const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    color: Palette.ink,
-                    letterSpacing: 4,
-                  )),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          DrawerCabinet(number: session.number!, deck: session.deck),
           const SizedBox(height: 20),
           QuestionCard(
             controller: _question,

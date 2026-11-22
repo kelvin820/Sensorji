@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/scope.dart';
 import '../../app/theme.dart';
 import '../../data/models.dart';
+import '../../logic/haptics.dart';
 import '../../logic/session.dart';
 import '../../logic/settings.dart';
 import '../../logic/shake.dart';
@@ -92,7 +93,7 @@ class _ShakeScreenState extends State<ShakeScreen> {
   void _onShake(double intensity) {
     if (_dropping) return;
     final s = AppScope.of(context);
-    if (s.settings.haptics) HapticFeedback.lightImpact();
+    if (s.settings.haptics) Haptics.shake(intensity);
     _shaker.currentState?.kick(intensity);
     setState(() => _count = min(_count + 1, shakesToDraw));
     // 語音模式不看搖晃次數：放開音量鍵（或按「說完了」）才落籤。
@@ -151,7 +152,7 @@ class _ShakeScreenState extends State<ShakeScreen> {
                   progress: _count / shakesToDraw,
                   inkColor: fg,
                   onLand: () {
-                    if (AppScope.of(context).settings.haptics) HapticFeedback.mediumImpact();
+                    if (AppScope.of(context).settings.haptics) Haptics.land();
                   },
                 ),
               ),

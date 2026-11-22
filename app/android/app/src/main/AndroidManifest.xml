@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- 語音提問（BUILD_PLAN 第 7 節）。 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="心想事"
         android:name="${applicationName}"
