@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/scope.dart';
 import '../../app/theme.dart';
+import '../widgets/common.dart';
 import '../../data/models.dart';
 import '../../logic/draw.dart';
 import '../../logic/records.dart';
@@ -91,13 +92,10 @@ class _NumberScreenState extends State<NumberScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          TextField(
+          QuestionCard(
             controller: _question,
             maxLength: maxQuestionChars,
-            minLines: 2,
-            maxLines: 4,
-            style: const TextStyle(color: Palette.ink),
-            decoration: const InputDecoration(labelText: '你的問題（可修改）'),
+            label: '你的問題（可修改）',
           ),
           const SizedBox(height: 12),
           FilledButton(onPressed: _next, child: Text(_needsJiaobei ? '擲筊確認' : '看籤詩')),

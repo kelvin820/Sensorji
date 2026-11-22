@@ -52,3 +52,107 @@ class PaperCard extends StatelessWidget {
 
 /// 籤號＋吉凶／干支的標題，例：第 28 籤・凶。
 String drawTitle(int number, String tag) => '第 $number 籤・$tag';
+
+/// 問題輸入框：整塊和紙卡片，標題與字數都在卡片裡，
+/// 放在任何季節背景（包括冬夜深色背景）上都看得清楚，標題也不會壓在框線上。
+class QuestionCard extends StatefulWidget {
+  const QuestionCard({
+    super.key,
+    required this.controller,
+    required this.maxLength,
+    this.label,
+    this.hint,
+    this.minLines = 2,
+    this.maxLines = 4,
+  });
+
+  final TextEditingController controller;
+  final int maxLength;
+  final String? label;
+  final String? hint;
+  final int minLines;
+  final int maxLines;
+
+  @override
+  State<QuestionCard> createState() => _QuestionCardState();
+}
+
+class _QuestionCardState extends State<QuestionCard> {
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final focused = _focus.hasFocus;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      decoration: BoxDecoration(
+        color: Palette.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: focused ? Palette.vermilion : Palette.line,
+          width: focused ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (widget.label != null)
+                Expanded(
+                  child: Text(
+                    widget.label!,
+                    style: text.labelLarge?.copyWith(
+                      color: focused ? Palette.vermilionDeep : Palette.inkSoft,
+                    ),
+                  ),
+                )
+              else
+                const Spacer(),
+              ListenableBuilder(
+                listenable: widget.controller,
+                builder: (context, _) => Text(
+                  '${widget.controller.text.characters.length}/${widget.maxLength}',
+                  style: text.bodySmall?.copyWith(color: Palette.inkSoft),
+                ),
+              ),
+            ],
+          ),
+          TextField(
+            controller: widget.controller,
+            focusNode: _focus,
+            maxLength: widget.maxLength,
+            minLines: widget.minLines,
+            maxLines: widget.maxLines,
+            style: text.bodyLarge?.copyWith(color: Palette.ink, height: 1.5),
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: TextStyle(color: Palette.inkSoft.withValues(alpha: 0.8)),
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              counterText: '', // 字數改顯示在標題列
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

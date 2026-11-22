@@ -124,18 +124,15 @@ class _AskScreenState extends State<AskScreen> {
             style: SegmentedButton.styleFrom(backgroundColor: Palette.card),
           ),
           const SizedBox(height: 16),
-          TextField(
+          QuestionCard(
             controller: _question,
             maxLength: maxQuestionChars,
+            label: '你的問題',
             minLines: 3,
             maxLines: 6,
-            style: const TextStyle(color: Palette.ink),
-            decoration: InputDecoration(
-              hintText: _input == InputMode.voice
-                  ? '到搖籤頁後，按住音量鍵說出你的心事，放開就落籤'
-                  : '把心裡的事寫下來（也可以留白）',
-              counterStyle: const TextStyle(color: Palette.inkSoft),
-            ),
+            hint: _input == InputMode.voice
+                ? '到搖籤頁後，按住音量鍵說出你的心事，放開就落籤'
+                : '把心裡的事寫下來（也可以留白）',
           ),
           const SizedBox(height: 12),
           FilledButton(
