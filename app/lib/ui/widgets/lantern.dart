@@ -16,6 +16,7 @@ const kLanternPivotY = 24 / 1326;
 // ── 好籤「成」燈籠（BUILD_PLAN 第 6 節） ──────────────────────────
 
 /// 寬度約為畫面寬的 22%；寬螢幕（Web）封頂，免得燈籠大到喧賓奪主。
+/// 燈籠刻意掛在籤紙右上角上方、與籤紙重疊（使用者決定：籤紙不縮小，好籤要有喜氣）。
 const kGoodLanternWidthFactor = 0.22;
 const kGoodLanternMaxWidth = 130.0;
 
@@ -46,14 +47,6 @@ const kGoodLanternFade = Duration(milliseconds: 400);
 
 double goodLanternWidth(Size screen) =>
     min(screen.width * kGoodLanternWidthFactor, kGoodLanternMaxWidth);
-
-/// 燈籠停住時底部距畫面頂端的距離（含狀態列），版面要在這之下才不會被遮住。
-double goodLanternBottom(BuildContext context) {
-  final mq = MediaQuery.of(context);
-  final w = goodLanternWidth(mq.size);
-  final h = w * kLanternAspect;
-  return mq.viewPadding.top + kGoodLanternRingTop + h * (1 - kLanternPivotY);
-}
 
 /// 好籤時從右上角沿吊繩降下的「成」燈籠，放在整個畫面最上層，不吃點擊。
 class GoodLantern extends StatefulWidget {

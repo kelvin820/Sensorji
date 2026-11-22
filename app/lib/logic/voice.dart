@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
@@ -36,6 +38,12 @@ class SpeechVoiceInput extends VoiceInput {
   String _partial = '';
 
   static const _maxRestarts = 6;
+
+  /// 放開後最多等辨識器送來最終結果的時間。
+  static const _finalWait = Duration(milliseconds: 1500);
+
+  /// stop() 等待中的最終結果。
+  Completer<void>? _final;
 
   @override
   String get text => _join(_done, _partial);
@@ -93,15 +101,22 @@ class SpeechVoiceInput extends VoiceInput {
 
   void _onResult(SpeechRecognitionResult r) {
     if (r.finalResult) {
-      _done = _join(_done, r.recognizedWords);
+      // 有些辨識器的最終結果是空的，不能拿它蓋掉畫面上已經聽到的字。
+      _done = _join(_done, r.recognizedWords.trim().isEmpty ? _partial : r.recognizedWords);
       _partial = '';
-    } else {
+      _final?.complete();
+      _final = null;
+    } else if (r.recognizedWords.trim().isNotEmpty) {
       _partial = r.recognizedWords;
     }
     notifyListeners();
   }
 
   void _onStatus(String status) {
+    if (status == 'done' && _final != null) {
+      _final!.complete();
+      _final = null;
+    }
     // 使用者停頓太久時系統會自己結束，人還在搖籤就再聽下一段。
     if ((status == 'done' || status == 'notListening') && _wanted && _restarts < _maxRestarts) {
       _restarts++;
@@ -122,11 +137,23 @@ class SpeechVoiceInput extends VoiceInput {
     notifyListeners();
   }
 
+  /// 停止並回傳最終文字。
+  ///
+  /// Android 的 stop() 回來時最終結果通常還沒到（之後才非同步送來），
+  /// 中間還可能先送一筆空的暫時結果；直接讀文字會拿到空字串，問題就沒帶到籤號頁。
+  /// 所以先記下畫面上顯示的文字，再等最終結果（最多 1.5 秒），取比較完整的那份。
   @override
   Future<String> stop() async {
     _wanted = false;
-    if (_stt.isListening) await _stt.stop();
-    _done = _join(_done, _partial);
+    final shown = text;
+    if (_stt.isListening) {
+      final pending = _final = Completer<void>();
+      await _stt.stop();
+      await pending.future.timeout(_finalWait, onTimeout: () {});
+      _final = null;
+    }
+    final heard = text;
+    _done = heard.length >= shown.length ? heard : shown;
     _partial = '';
     notifyListeners();
     return _done;

@@ -219,7 +219,7 @@ void main() {
   }
 
   for (final (number, rank) in [(1, '大吉'), (4, '吉')]) {
-    testWidgets('好籤（$rank）：籤詩頁出現「成」燈籠，不遮籤紙；紀錄回看也有', (tester) async {
+    testWidgets('好籤（$rank）：籤詩頁出現「成」燈籠，掛在籤紙右上角上；紀錄回看也有', (tester) async {
       final s = await makeServices(FixedDraw(number));
       await pumpApp(tester, s);
       await drawToPoem(tester);
@@ -227,10 +227,11 @@ void main() {
       expect(find.byType(GoodLantern), findsOneWidget);
       expect(find.image(const AssetImage('assets/objects/OB01_sei.webp')), findsOneWidget);
 
-      // 燈籠底部在籤紙區（可縮放範圍）之上，放大也不會被燈籠蓋住。
+      // 籤紙維持原本大小（不讓位），燈籠刻意與籤紙右上角重疊。
       final lantern = tester.getRect(find.image(const AssetImage('assets/objects/OB01_sei.webp')));
       final slip = tester.getRect(find.byType(InteractiveViewer));
-      expect(lantern.bottom, lessThanOrEqualTo(slip.top + 0.5));
+      expect(slip.top, closeTo(kToolbarHeight, 1), reason: '籤紙區緊接在標題列下方');
+      expect(lantern.overlaps(slip), isTrue);
       expect(lantern.width, closeTo(390 * kGoodLanternWidthFactor, 0.5));
       expect(lantern.right, lessThanOrEqualTo(390));
 
