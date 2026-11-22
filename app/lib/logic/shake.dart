@@ -57,14 +57,14 @@ class ShakeDetector {
 
   void start() {
     _clock.start();
-    _sub = userAccelerometerEventStream(samplingPeriod: SensorInterval.gameInterval).listen(
-      (e) {
-        final intensity = _counter.feed(_clock.elapsed, e.x, e.y, e.z);
-        if (intensity > 0) onShake(intensity, _counter.count);
-      },
-      onError: (_) {}, // 裝置沒有感測器：保持安靜，使用點按抽籤
-      cancelOnError: true,
-    );
+    _quietly(() => _sub = userAccelerometerEventStream(samplingPeriod: SensorInterval.gameInterval).listen(
+          (e) {
+            final intensity = _counter.feed(_clock.elapsed, e.x, e.y, e.z);
+            if (intensity > 0) onShake(intensity, _counter.count);
+          },
+          onError: (_) {}, // 裝置沒有感測器：保持安靜，使用點按抽籤
+          cancelOnError: true,
+        ));
   }
 
   void stop() {
@@ -73,3 +73,33 @@ class ShakeDetector {
     _clock.stop();
   }
 }
+
+/// 手機左右傾斜（分鏡 ① 籤筒跟著擺）：用含重力的加速度計 x 軸換算成 −1…1，並做低通平滑。
+/// 左緣朝下時為正。沒有感測器（Web 桌機）時不會有事件，維持 0。
+class TiltSensor {
+  TiltSensor(this.onTilt);
+
+  final void Function(double tilt) onTilt;
+  StreamSubscription<AccelerometerEvent>? _sub;
+  double _smooth = 0;
+
+  void start() {
+    _quietly(() => _sub = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(
+          (e) {
+            _smooth += ((e.x / 9.8).clamp(-1.0, 1.0) - _smooth) * 0.2;
+            onTilt(_smooth);
+          },
+          onError: (_) {},
+          cancelOnError: true,
+        ));
+  }
+
+  void stop() {
+    _sub?.cancel();
+    _sub = null;
+  }
+}
+
+/// sensors_plus 設定取樣頻率時是另外發出的非同步呼叫，沒有感測器外掛的環境（部分瀏覽器、測試）
+/// 會丟出沒人接的錯誤。在這個 zone 裡啟動，錯誤就安靜吞掉，畫面仍可點按抽籤。
+void _quietly(void Function() body) => runZonedGuarded(body, (_, _) {});

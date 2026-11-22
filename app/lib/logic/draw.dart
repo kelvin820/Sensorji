@@ -67,3 +67,12 @@ class JiaobeiSession {
     results.add(r);
   }
 }
+
+/// 1–100 轉中文數字（籤號用）：77 → 七十七、10 → 十、100 → 百。
+String chineseNumber(int n) {
+  const d = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+  if (n == 100) return '百';
+  if (n < 10) return d[n];
+  final tens = n ~/ 10, ones = n % 10;
+  return '${tens == 1 ? '' : d[tens]}十${ones == 0 ? '' : d[ones]}';
+}

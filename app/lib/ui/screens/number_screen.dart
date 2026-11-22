@@ -79,7 +79,7 @@ class _NumberScreenState extends State<NumberScreen> {
                 Align(
                   alignment: const Alignment(0, -0.6),
                   child: Text(
-                  '第${_toChineseNumber(session.number!)}籤',
+                  '第${chineseNumber(session.number!)}籤',
                   style: brush(const TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
@@ -120,13 +120,4 @@ Future<String> saveDrawn(BuildContext context, DrawSession session) async {
     tag: poem.tag,
   ));
   return session.id;
-}
-
-/// 1–100 轉中文數字（籤號用）。
-String _toChineseNumber(int n) {
-  const d = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-  if (n == 100) return '百';
-  if (n < 10) return d[n];
-  final tens = n ~/ 10, ones = n % 10;
-  return '${tens == 1 ? '' : d[tens]}十${ones == 0 ? '' : d[ones]}';
 }

@@ -12,11 +12,12 @@ import '../../logic/settings.dart';
 import '../../logic/shake.dart';
 import '../../logic/voice.dart';
 import '../widgets/season_scaffold.dart';
+import '../widgets/shaker.dart';
 
 /// 需要的有效晃動次數（BUILD_PLAN 第 5 節：約 5–8 次）。
 const shakesToDraw = 6;
 
-/// 03 搖籤：籤筒隨晃動擺動，晃滿次數後落籤。之後籤筒換成 Rive shaker.riv。
+/// 03 搖籤：籤筒隨手機傾斜與晃動擺動（分鏡 ①），晃滿次數（語音模式是放開音量鍵）後落籤（分鏡 ②）。
 class ShakeScreen extends StatefulWidget {
   const ShakeScreen({super.key, required this.session});
   final DrawSession session;
@@ -25,14 +26,11 @@ class ShakeScreen extends StatefulWidget {
   State<ShakeScreen> createState() => _ShakeScreenState();
 }
 
-class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin {
+class _ShakeScreenState extends State<ShakeScreen> {
   ShakeDetector? _detector;
   int _count = 0;
   bool _dropping = false;
-  late final AnimationController _wobble =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
-  late final AnimationController _drop =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+  final _shaker = GlobalKey<ShakerState>();
 
   @override
   void didChangeDependencies() {
@@ -88,8 +86,6 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
     // 沒抽完就返回提問頁時，也要關掉麥克風。
     if (_voice && !_dropping) _voiceInput?.stop();
     _detector?.stop();
-    _wobble.dispose();
-    _drop.dispose();
     super.dispose();
   }
 
@@ -97,7 +93,7 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
     if (_dropping) return;
     final s = AppScope.of(context);
     if (s.settings.haptics) HapticFeedback.lightImpact();
-    _wobble.forward(from: 0);
+    _shaker.currentState?.kick(intensity);
     setState(() => _count = min(_count + 1, shakesToDraw));
     // 語音模式不看搖晃次數：放開音量鍵（或按「說完了」）才落籤。
     if (!_voice && _count >= shakesToDraw) _dropStick();
@@ -108,21 +104,17 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
     final s = AppScope.of(context);
     _dropping = true;
     _detector?.stop();
-    if (_voice) {
-      // 籤落出時停止聆聽，辨識結果接在打的字後面；籤號頁還可以修改。
-      final spoken = await s.voice.stop();
-      final typed = widget.session.question;
-      widget.session.question = [typed, spoken].where((t) => t.isNotEmpty).join('，');
-      if (!mounted) return;
-    }
-    widget.session.number = s.draw.drawNumber(widget.session.deck);
-    if (s.settings.haptics) HapticFeedback.mediumImpact();
-    final reduced = MediaQuery.disableAnimationsOf(context);
+    setState(() {});
+    // 籤落出時停止聆聽（辨識器可能要再等一下最終結果，和落籤動畫同時進行）。
+    final spoken = _voice ? s.voice.stop() : Future.value('');
+    final number = widget.session.number = s.draw.drawNumber(widget.session.deck);
+    if (s.settings.haptics) HapticFeedback.selectionClick();
     // 擲筊失敗重搖時縮短落籤動畫
-    if (!reduced) {
-      _drop.duration = Duration(milliseconds: widget.session.attempt > 1 ? 500 : 1100);
-      await _drop.forward(from: 0);
-    }
+    await _shaker.currentState?.drop(number, quick: widget.session.attempt > 1);
+    // 辨識結果接在打的字後面；籤號頁還可以修改。
+    final heard = await spoken;
+    final typed = widget.session.question;
+    widget.session.question = [typed, heard].where((t) => t.isNotEmpty).join('，');
     if (mounted) context.pushReplacement('/number', extra: widget.session);
   }
 
@@ -149,7 +141,22 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
               overflow: TextOverflow.ellipsis,
               style: text.bodyLarge?.copyWith(color: fg),
             ),
-          Expanded(child: Center(child: _Shaker(wobble: _wobble, drop: _drop, deck: session.deck))),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: Shaker(
+                  key: _shaker,
+                  label: session.deck == Deck.sensoji ? '觀音籤' : '六十甲子',
+                  progress: _count / shakesToDraw,
+                  inkColor: fg,
+                  onLand: () {
+                    if (AppScope.of(context).settings.haptics) HapticFeedback.mediumImpact();
+                  },
+                ),
+              ),
+            ),
+          ),
           Semantics(
             label: '搖晃進度 $_count / $shakesToDraw',
             child: Row(
@@ -256,65 +263,6 @@ class _LiveTranscript extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _Shaker extends StatelessWidget {
-  const _Shaker({required this.wobble, required this.drop, required this.deck});
-
-  final Animation<double> wobble;
-  final Animation<double> drop;
-  final Deck deck;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([wobble, drop]),
-      builder: (context, _) {
-        final w = sin(wobble.value * pi * 3) * (1 - wobble.value) * 0.18;
-        final d = Curves.easeOutCubic.transform(drop.value);
-        return SizedBox(
-          width: 260,
-          height: 360,
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            clipBehavior: Clip.none,
-            children: [
-              // 落出的籤棒
-              Positioned(
-                bottom: 150 + d * 150,
-                child: Opacity(
-                  opacity: drop.value == 0 ? 0 : 1,
-                  child: Transform.rotate(
-                    angle: d * 0.5,
-                    child: Image.asset('assets/objects/OB03.webp', height: 200),
-                  ),
-                ),
-              ),
-              Transform.rotate(
-                angle: w,
-                alignment: Alignment.bottomCenter,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Image.asset('assets/objects/OB02.webp', height: 300),
-                    Text(
-                      deck == Deck.sensoji ? '觀音籤' : '六十甲子',
-                      style: brush(const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        color: Palette.ink,
-                        letterSpacing: 4,
-                      )),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
         );
       },
