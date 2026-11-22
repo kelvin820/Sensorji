@@ -4,13 +4,14 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 import '../data/models.dart';
 import 'settings.dart';
 
-/// 解籤服務網址。Web 預設同網域；Android 需在建置時給：
-/// flutter run --dart-define=API_BASE=https://你的網域
+/// 解籤服務網址。Web 預設同網域；Android 需在建置時給（網址寫在 app/dart_defines.json）：
+/// flutter build apk --dart-define-from-file=dart_defines.json
 const apiBase = String.fromEnvironment('API_BASE');
 
 enum InterpretSection {
@@ -101,6 +102,10 @@ class InterpretClient {
   final http.Client _client;
 
   Stream<InterpretEvent> interpret(InterpretRequest req) async* {
+    if (apiBase.isEmpty && !kIsWeb) {
+      yield InterpretError('這個版本還沒設定解籤服務的網址');
+      return;
+    }
     final uri = Uri.parse('$apiBase/api/interpret');
     http.StreamedResponse res;
     try {

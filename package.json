@@ -6,16 +6,17 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test \"api/**/*.test.ts\"",
+    "test": "node --test \"server/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "assets": "python -I tools/import_assets.py",
-    "check-data": "python -I -X utf8 tools/check_data.py"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^1.0.0"
+    "check-data": "python -I -X utf8 tools/check_data.py",
+    "models": "node --env-file=.env.local tools/list_models.ts",
+    "build:api": "esbuild server/interpret.ts --bundle --platform=node --format=esm --target=node22 --outfile=api/interpret.js --banner:js=\"// 由 npm run build:api 從 server/ 產生，不要手改。\"",
+    "smoke": "node tools/smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.6.0"
   }
 }

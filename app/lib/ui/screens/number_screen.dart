@@ -46,7 +46,6 @@ class _NumberScreenState extends State<NumberScreen> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    final fg = seasonText(context, session.season);
     final text = Theme.of(context).textTheme;
     return SeasonScaffold(
       season: session.season,
@@ -55,7 +54,19 @@ class _NumberScreenState extends State<NumberScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
         children: [
-          Text('籤已落出', textAlign: TextAlign.center, style: text.titleLarge?.copyWith(color: fg)),
+          // 籤櫃背景上方是深色木樑，白天的深色字會看不見，所以墊一塊半透明紙色。
+          Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Palette.card.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 6),
+                child: Text('籤已落出', style: text.titleLarge?.copyWith(color: Palette.ink)),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 300,
@@ -68,7 +79,7 @@ class _NumberScreenState extends State<NumberScreen> {
                   alignment: const Alignment(0, -0.6),
                   child: Text(
                   '第${_toChineseNumber(session.number!)}籤',
-                  style: serif(const TextStyle(
+                  style: brush(const TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
                     color: Palette.ink,

@@ -5,6 +5,7 @@ import '../logic/draw.dart';
 import '../logic/interpret_client.dart';
 import '../logic/records.dart';
 import '../logic/settings.dart';
+import '../logic/voice.dart';
 
 /// App 全域服務。用 AppScope.of(context) 取得。
 class AppServices {
@@ -14,14 +15,17 @@ class AppServices {
     required this.records,
     DrawService? draw,
     InterpretClient? interpreter,
+    VoiceInput? voice,
   })  : draw = draw ?? DrawService(),
-        interpreter = interpreter ?? InterpretClient();
+        interpreter = interpreter ?? InterpretClient(),
+        voice = voice ?? SpeechVoiceInput();
 
   final PoemRepository poems;
   final Settings settings;
   final RecordStore records;
   final DrawService draw;
   final InterpretClient interpreter;
+  final VoiceInput voice;
 }
 
 class AppScope extends InheritedWidget {

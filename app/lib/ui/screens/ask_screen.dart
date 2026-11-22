@@ -32,7 +32,7 @@ class _AskScreenState extends State<AskScreen> {
     if (_init) return;
     final settings = AppScope.of(context).settings;
     _deck = settings.defaultDeck;
-    _input = InputMode.typing; // 語音提問尚未完成（BUILD_PLAN 第 7 節）
+    _input = settings.defaultInput;
     _init = true;
   }
 
@@ -42,8 +42,21 @@ class _AskScreenState extends State<AskScreen> {
     super.dispose();
   }
 
-  void _start() {
+  Future<void> _start() async {
     final s = AppScope.of(context);
+    if (_input == InputMode.voice) {
+      // 先取得麥克風權限；真正收音是在搖籤頁按住音量鍵時（BUILD_PLAN 第 7 節）。
+      final ok = await s.voice.prepare();
+      s.voice.reset();
+      if (!mounted) return;
+      if (!ok) {
+        setState(() => _input = InputMode.typing);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('無法使用語音（請允許麥克風權限），已改成打字'),
+        ));
+        return;
+      }
+    }
     final session = DrawSession(
       deck: _deck,
       category: s.poems.category(_categoryId!),
@@ -104,11 +117,7 @@ class _AskScreenState extends State<AskScreen> {
           SegmentedButton<InputMode>(
             segments: [
               for (final m in InputMode.values)
-                ButtonSegment(
-                  value: m,
-                  label: Text(m.label),
-                  enabled: m == InputMode.typing, // 語音提問尚未完成
-                ),
+                ButtonSegment(value: m, label: Text(m.label)),
             ],
             selected: {_input},
             onSelectionChanged: (v) => setState(() => _input = v.first),
@@ -121,9 +130,11 @@ class _AskScreenState extends State<AskScreen> {
             minLines: 3,
             maxLines: 6,
             style: const TextStyle(color: Palette.ink),
-            decoration: const InputDecoration(
-              hintText: '把心裡的事寫下來（也可以留白）',
-              counterStyle: TextStyle(color: Palette.inkSoft),
+            decoration: InputDecoration(
+              hintText: _input == InputMode.voice
+                  ? '到搖籤頁後，按住音量鍵說出你的心事，放開就落籤'
+                  : '把心裡的事寫下來（也可以留白）',
+              counterStyle: const TextStyle(color: Palette.inkSoft),
             ),
           ),
           const SizedBox(height: 12),

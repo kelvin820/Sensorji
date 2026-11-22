@@ -8,7 +8,9 @@ import '../../app/scope.dart';
 import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../logic/session.dart';
+import '../../logic/settings.dart';
 import '../../logic/shake.dart';
+import '../../logic/voice.dart';
 import '../widgets/season_scaffold.dart';
 
 /// 需要的有效晃動次數（BUILD_PLAN 第 5 節：約 5–8 次）。
@@ -36,15 +38,55 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_detector != null) return;
+    _voiceInput = AppScope.of(context).voice;
     final settings = AppScope.of(context).settings;
     _detector = ShakeDetector(
       sensitivity: settings.sensitivity,
       onShake: (intensity, _) => _onShake(intensity),
     )..start();
+    if (_voice) HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  bool get _voice => widget.session.inputMode == InputMode.voice;
+  VoiceInput? _voiceInput;
+
+  /// 正按著音量鍵或「按住說話」。
+  bool _talking = false;
+
+  static final _volumeKeys = {LogicalKeyboardKey.audioVolumeUp, LogicalKeyboardKey.audioVolumeDown};
+
+  /// 語音模式：按住音量鍵說話，放開就當作問題講完、落籤。
+  /// 回傳 true 表示吃掉這個按鍵，不讓系統調音量。
+  bool _onKey(KeyEvent e) {
+    if (!_volumeKeys.contains(e.logicalKey)) return false;
+    if (e is KeyDownEvent) _talkStart();
+    if (e is KeyUpEvent) _talkEnd();
+    return true;
+  }
+
+  Future<void> _talkStart() async {
+    if (_talking || _dropping) return;
+    setState(() => _talking = true);
+    final s = AppScope.of(context);
+    if (s.settings.haptics) HapticFeedback.selectionClick();
+    final ok = await s.voice.start();
+    if (!ok && mounted) {
+      setState(() => _talking = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法使用麥克風，請直接搖籤或按「說完了，落籤」')));
+    }
+  }
+
+  void _talkEnd() {
+    if (!_talking) return;
+    _talking = false;
+    _dropStick(); // 放開＝問題講完（不管搖了幾次）
   }
 
   @override
   void dispose() {
+    if (_voice) HardwareKeyboard.instance.removeHandler(_onKey);
+    // 沒抽完就返回提問頁時，也要關掉麥克風。
+    if (_voice && !_dropping) _voiceInput?.stop();
     _detector?.stop();
     _wobble.dispose();
     _drop.dispose();
@@ -56,8 +98,9 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
     final s = AppScope.of(context);
     if (s.settings.haptics) HapticFeedback.lightImpact();
     _wobble.forward(from: 0);
-    setState(() => _count++);
-    if (_count >= shakesToDraw) _dropStick();
+    setState(() => _count = min(_count + 1, shakesToDraw));
+    // 語音模式不看搖晃次數：放開音量鍵（或按「說完了」）才落籤。
+    if (!_voice && _count >= shakesToDraw) _dropStick();
   }
 
   Future<void> _dropStick() async {
@@ -65,6 +108,13 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
     final s = AppScope.of(context);
     _dropping = true;
     _detector?.stop();
+    if (_voice) {
+      // 籤落出時停止聆聽，辨識結果接在打的字後面；籤號頁還可以修改。
+      final spoken = await s.voice.stop();
+      final typed = widget.session.question;
+      widget.session.question = [typed, spoken].where((t) => t.isNotEmpty).join('，');
+      if (!mounted) return;
+    }
     widget.session.number = s.draw.drawNumber(widget.session.deck);
     if (s.settings.haptics) HapticFeedback.mediumImpact();
     final reduced = MediaQuery.disableAnimationsOf(context);
@@ -89,13 +139,16 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
       child: Column(
         children: [
           const SizedBox(height: 8),
-          Text(
-            session.question.isEmpty ? session.category.label : '「${session.question}」',
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: text.bodyLarge?.copyWith(color: fg),
-          ),
+          if (_voice && !_dropping)
+            _LiveTranscript(voice: AppScope.of(context).voice, typed: session.question, color: fg)
+          else
+            Text(
+              session.question.isEmpty ? session.category.label : '「${session.question}」',
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: text.bodyLarge?.copyWith(color: fg),
+            ),
           Expanded(child: Center(child: _Shaker(wobble: _wobble, drop: _drop, deck: session.deck))),
           Semantics(
             label: '搖晃進度 $_count / $shakesToDraw',
@@ -116,16 +169,96 @@ class _ShakeScreenState extends State<ShakeScreen> with TickerProviderStateMixin
             ),
           ),
           const SizedBox(height: 12),
-          Text('拿穩手機，上下輕搖', style: text.bodyMedium?.copyWith(color: fg)),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: _dropping ? null : _dropStick,
-            style: TextButton.styleFrom(foregroundColor: fg, minimumSize: const Size(44, 48)),
-            child: const Text('無法搖晃？點此抽籤'),
-          ),
+          if (_voice) ...[
+            Text(
+              _talking ? '說完就放開，籤會落下' : '按住音量鍵說出你的問題，邊說邊搖',
+              style: text.bodyMedium?.copyWith(color: fg),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                children: [
+                  // 沒有實體音量鍵（Web、平板）時用這顆：按住說話、放開落籤。
+                  Expanded(
+                    child: Listener(
+                      onPointerDown: (_) => _talkStart(),
+                      onPointerUp: (_) => _talkEnd(),
+                      onPointerCancel: (_) => _talkEnd(),
+                      child: OutlinedButton.icon(
+                        onPressed: _dropping ? null : () {},
+                        icon: Icon(_talking ? Icons.mic : Icons.mic_none),
+                        label: Text(_talking ? '放開落籤' : '按住說話'),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _dropping ? null : _dropStick,
+                      child: const Text('說完了，落籤'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Text('拿穩手機，上下輕搖', style: text.bodyMedium?.copyWith(color: fg)),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _dropping ? null : _dropStick,
+              style: TextButton.styleFrom(foregroundColor: fg, minimumSize: const Size(44, 48)),
+              child: const Text('無法搖晃？點此抽籤'),
+            ),
+          ],
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+}
+
+/// 語音模式：邊搖邊顯示即時辨識的文字。
+class _LiveTranscript extends StatelessWidget {
+  const _LiveTranscript({required this.voice, required this.typed, required this.color});
+  final VoiceInput voice;
+  final String typed;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return ListenableBuilder(
+      listenable: voice,
+      builder: (context, _) {
+        final said = [typed, voice.text].where((t) => t.isNotEmpty).join('，');
+        return Semantics(
+          liveRegion: true,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(voice.listening ? Icons.mic : Icons.mic_none, size: 18, color: color),
+                    const SizedBox(width: 6),
+                    Text(voice.listening ? '正在聆聽…' : '麥克風已停止', style: text.bodySmall?.copyWith(color: color)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  said.isEmpty ? '說出你想問的事' : '「$said」',
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.bodyLarge?.copyWith(color: color.withValues(alpha: said.isEmpty ? 0.6 : 1)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -171,8 +304,8 @@ class _Shaker extends StatelessWidget {
                     Image.asset('assets/objects/OB02.webp', height: 300),
                     Text(
                       deck == Deck.sensoji ? '觀音籤' : '六十甲子',
-                      style: serif(const TextStyle(
-                        fontSize: 26,
+                      style: brush(const TextStyle(
+                        fontSize: 32,
                         fontWeight: FontWeight.w800,
                         color: Palette.ink,
                         letterSpacing: 4,

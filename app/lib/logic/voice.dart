@@ -1,0 +1,140 @@
+import 'package:flutter/foundation.dart';
+import 'package:speech_to_text/speech_recognition_error.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
+
+/// 語音提問（BUILD_PLAN 第 7 節）：在搖籤頁按住音量鍵（或「按住說話」）時聆聽，
+/// 即時把辨識文字顯示出來；放開就當作問題講完，籤落下。
+///
+/// Android 用系統的 SpeechRecognizer，Web 用瀏覽器的 Web Speech API（Chrome 支援）；
+/// 兩者都會把聲音送到 Google 辨識，隱私權政策需載明。
+abstract class VoiceInput extends ChangeNotifier {
+  /// 目前為止的辨識結果（已確定的句子＋正在說的句子）。
+  String get text;
+  bool get listening;
+
+  /// 準備麥克風（第一次會跳出權限要求）。回傳 false 表示無法使用
+  /// （沒有麥克風權限、裝置或瀏覽器不支援）。在提問頁按「開始搖籤」時呼叫。
+  Future<bool> prepare();
+
+  /// 開始聆聽（可以多次按住、放開；文字會接在後面）。回傳 false 表示無法開始。
+  Future<bool> start();
+
+  /// 清空上一次的文字。
+  void reset();
+
+  /// 停止聆聽，回傳最終文字。
+  Future<String> stop();
+}
+
+class SpeechVoiceInput extends VoiceInput {
+  final _stt = SpeechToText();
+  bool _ready = false;
+  bool _wanted = false; // 使用者還在搖籤畫面，辨識器自己停下時要接著聽
+  int _restarts = 0;
+  String _done = ''; // 前幾段已確定的文字
+  String _partial = '';
+
+  static const _maxRestarts = 6;
+
+  @override
+  String get text => _join(_done, _partial);
+
+  @override
+  bool get listening => _stt.isListening;
+
+  String get _locale => kIsWeb ? 'zh-TW' : 'zh_TW';
+
+  @override
+  Future<bool> prepare() async {
+    try {
+      _ready = _ready || await _stt.initialize(onStatus: _onStatus, onError: _onError);
+    } catch (_) {
+      _ready = false;
+    }
+    return _ready;
+  }
+
+  @override
+  void reset() {
+    _done = '';
+    _partial = '';
+    notifyListeners();
+  }
+
+  @override
+  Future<bool> start() async {
+    if (!await prepare()) return false;
+    if (_stt.isListening) return true;
+    _restarts = 0;
+    _wanted = true;
+    await _listen();
+    return true;
+  }
+
+  Future<void> _listen() async {
+    try {
+      await _stt.listen(
+        onResult: _onResult,
+        listenOptions: SpeechListenOptions(
+          localeId: _locale,
+          partialResults: true,
+          listenMode: ListenMode.dictation,
+          listenFor: const Duration(minutes: 1),
+          pauseFor: const Duration(seconds: 8),
+          cancelOnError: false,
+        ),
+      );
+    } catch (_) {
+      _wanted = false;
+    }
+    notifyListeners();
+  }
+
+  void _onResult(SpeechRecognitionResult r) {
+    if (r.finalResult) {
+      _done = _join(_done, r.recognizedWords);
+      _partial = '';
+    } else {
+      _partial = r.recognizedWords;
+    }
+    notifyListeners();
+  }
+
+  void _onStatus(String status) {
+    // 使用者停頓太久時系統會自己結束，人還在搖籤就再聽下一段。
+    if ((status == 'done' || status == 'notListening') && _wanted && _restarts < _maxRestarts) {
+      _restarts++;
+      _done = _join(_done, _partial);
+      _partial = '';
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (_wanted && !_stt.isListening) _listen();
+      });
+    }
+    notifyListeners();
+  }
+
+  void _onError(SpeechRecognitionError e) {
+    // 權限被拒或辨識器無法使用時不再重試；沒聽到聲音（no_match）可以再聽。
+    if (e.permanent && !e.errorMsg.contains('no_match') && !e.errorMsg.contains('speech_timeout')) {
+      _wanted = false;
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<String> stop() async {
+    _wanted = false;
+    if (_stt.isListening) await _stt.stop();
+    _done = _join(_done, _partial);
+    _partial = '';
+    notifyListeners();
+    return _done;
+  }
+
+  static String _join(String a, String b) {
+    if (a.isEmpty) return b.trim();
+    if (b.trim().isEmpty) return a;
+    return '$a，${b.trim()}';
+  }
+}

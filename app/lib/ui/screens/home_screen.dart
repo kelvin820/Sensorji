@@ -108,7 +108,7 @@ class _LanternState extends State<_Lantern> with SingleTickerProviderStateMixin 
                   Image.asset('assets/objects/OB01.webp', height: h),
                   Text(
                     '雷門',
-                    style: serif(TextStyle(
+                    style: brush(TextStyle(
                       fontSize: h * 0.2,
                       fontWeight: FontWeight.w900,
                       color: const Color(0xFF1B1410),

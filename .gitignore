@@ -29,3 +29,7 @@ __pycache__/
 # OS
 Thumbs.db
 .DS_Store
+
+# 字型原始檔（體積大；App 用 tools/subset_font.py 產生的子集）
+/fonts_src/
+app/android/build/

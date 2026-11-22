@@ -46,6 +46,17 @@ class SeasonLook {
 bool useGoogleFonts = true;
 
 TextStyle serif(TextStyle base) => useGoogleFonts ? GoogleFonts.notoSerifTc(textStyle: base) : base;
+
+/// 莫大毛筆字體（青柳衡山毛筆字的繁中補字版，SIL OFL 1.1，見 assets/fonts/OFL.txt）。
+/// 只用在固定文字：標題、按鈕、籤號、籤詩原文。字型檔是 tools/subset_font.py
+/// 產生的子集，缺字時改用明體。毛筆字只有一種字重，不要加粗（會被硬描粗）。
+const brushFamily = 'Bakudai';
+
+TextStyle brush(TextStyle base) => base.copyWith(
+      fontFamily: brushFamily,
+      fontWeight: FontWeight.normal,
+      fontFamilyFallback: [if (useGoogleFonts) GoogleFonts.notoSerifTc().fontFamily!],
+    );
 TextStyle sans(TextStyle base) => useGoogleFonts ? GoogleFonts.notoSansTc(textStyle: base) : base;
 
 ThemeData buildTheme() {
@@ -60,11 +71,11 @@ ThemeData buildTheme() {
   final base = ThemeData(colorScheme: scheme, useMaterial3: true);
   final t = base.textTheme.apply(bodyColor: Palette.ink, displayColor: Palette.ink);
   final text = t.copyWith(
-    displaySmall: serif(t.displaySmall!.copyWith(fontWeight: FontWeight.w700)),
-    headlineMedium: serif(t.headlineMedium!.copyWith(fontWeight: FontWeight.w700)),
-    headlineSmall: serif(t.headlineSmall!.copyWith(fontWeight: FontWeight.w700)),
-    titleLarge: serif(t.titleLarge!.copyWith(fontWeight: FontWeight.w700)),
-    titleMedium: serif(t.titleMedium!.copyWith(fontWeight: FontWeight.w600)),
+    displaySmall: brush(t.displaySmall!),
+    headlineMedium: brush(t.headlineMedium!),
+    headlineSmall: brush(t.headlineSmall!),
+    titleLarge: brush(t.titleLarge!.copyWith(fontSize: 24)),
+    titleMedium: brush(t.titleMedium!.copyWith(fontSize: 18)),
     bodyLarge: sans(t.bodyLarge!.copyWith(height: 1.7)),
     bodyMedium: sans(t.bodyMedium!.copyWith(height: 1.6)),
     bodySmall: sans(t.bodySmall!),
@@ -97,7 +108,7 @@ ThemeData buildTheme() {
         backgroundColor: Palette.vermilion,
         foregroundColor: Colors.white,
         minimumSize: const Size(64, 52),
-        textStyle: text.labelLarge?.copyWith(fontSize: 17),
+        textStyle: brush(text.labelLarge!.copyWith(fontSize: 20, letterSpacing: 2)),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(26))),
       ),
     ),
@@ -107,7 +118,7 @@ ThemeData buildTheme() {
         backgroundColor: Palette.card,
         minimumSize: const Size(64, 48),
         side: const BorderSide(color: Palette.inkSoft),
-        textStyle: text.labelLarge,
+        textStyle: brush(text.labelLarge!.copyWith(fontSize: 18, letterSpacing: 1)),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
       ),
     ),

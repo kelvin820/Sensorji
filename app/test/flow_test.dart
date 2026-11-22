@@ -10,6 +10,7 @@ import 'package:sensoji/logic/draw.dart';
 import 'package:sensoji/logic/records.dart';
 import 'package:sensoji/logic/season.dart';
 import 'package:sensoji/logic/settings.dart';
+import 'package:sensoji/logic/voice.dart';
 import 'package:sensoji/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,13 +34,53 @@ late PoemRepository poems;
 
 Future<void> loadPoems() async => poems = await PoemRepository.load(rootBundle);
 
-Future<AppServices> makeServices(DrawService draw, {Map<String, Object> prefs = const {}}) async {
+/// 假的語音輸入：開始後「聽到」固定的一句話。
+class FakeVoice extends VoiceInput {
+  FakeVoice(this.heard, {this.available = true});
+  final String heard;
+  final bool available;
+  String _text = '';
+  bool _listening = false;
+  bool stopped = false;
+
+  @override
+  String get text => _text;
+  @override
+  bool get listening => _listening;
+
+  @override
+  Future<bool> prepare() async => available;
+
+  @override
+  void reset() => _text = '';
+
+  @override
+  Future<bool> start() async {
+    if (!available) return false;
+    _listening = true;
+    _text = heard;
+    notifyListeners();
+    return true;
+  }
+
+  @override
+  Future<String> stop() async {
+    _listening = false;
+    stopped = true;
+    notifyListeners();
+    return _text;
+  }
+}
+
+Future<AppServices> makeServices(DrawService draw,
+    {Map<String, Object> prefs = const {}, VoiceInput? voice}) async {
   SharedPreferences.setMockInitialValues({'seasonMode': 'fixed', 'fixedSeason': 'autumn', ...prefs});
   return AppServices(
     poems: poems,
     settings: await Settings.load(),
     records: await RecordStore.load(),
     draw: draw,
+    voice: voice ?? FakeVoice(''),
   );
 }
 
@@ -87,6 +128,16 @@ void main() {
     expect(find.text('第 3 籤・凶'), findsOneWidget);
     expect(find.text('請 AI 為我解籤'), findsOneWidget);
     expect(find.text('結籤：把籤繫在籤架上'), findsOneWidget, reason: '凶籤要提供結籤');
+
+    // 逐句白話：點籤紙，四句白話一起浮出；按「收起」關掉。
+    await tester.tap(find.byType(InteractiveViewer));
+    await tester.pumpAndSettle();
+    expect(find.text('愁惱損忠良'), findsOneWidget);
+    expect(find.text('憂愁煩惱讓正直善良的人也受了折損。'), findsOneWidget);
+    expect(find.text('多餘的掛慮反而讓日子顯得更漫長難熬。'), findsOneWidget, reason: '四句一起出');
+    await tester.tap(find.text('收起'));
+    await tester.pumpAndSettle();
+    expect(find.text('憂愁煩惱讓正直善良的人也受了折損。'), findsNothing);
 
     final r = s.records.all.single;
     expect(r.number, 3);
@@ -141,6 +192,68 @@ void main() {
     expect(find.text('第 1 籤・甲子'), findsOneWidget);
     expect(find.text('籤詩參考新港奉天宮版本'), findsOneWidget);
     expect(find.textContaining('結籤'), findsNothing, reason: '六十甲子籤沒有結籤');
+
+    // 逐句白話：直接點直排的句子（「日」只出現在第一句）。
+    await tester.tap(find.text('日'));
+    await tester.pumpAndSettle();
+    expect(find.text('太陽一出來，風雲便自然散去。'), findsOneWidget);
+    expect(find.text('萬事清淨吉祥，平安有保障。'), findsOneWidget, reason: '四句一起出');
+  });
+
+  testWidgets('語音提問：按住音量鍵說話、即時顯示，放開就落籤並填進問題框', (tester) async {
+    final voice = FakeVoice('明年換工作好嗎');
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: voice);
+    await pumpApp(tester, s);
+
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('工作・事業'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    expect(find.text('按住音量鍵說出你的問題，邊說邊搖'), findsOneWidget);
+    expect(find.text('正在聆聽…'), findsNothing, reason: '還沒按住就不收音');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.audioVolumeDown);
+    await tester.pump();
+    expect(find.text('正在聆聽…'), findsOneWidget);
+    expect(find.text('「明年換工作好嗎」'), findsOneWidget);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.audioVolumeDown);
+    await tester.pumpAndSettle();
+    expect(voice.stopped, isTrue);
+    expect(find.text('明年換工作好嗎'), findsOneWidget, reason: '籤號頁的問題框');
+  });
+
+  testWidgets('語音提問：也可以按「說完了，落籤」', (tester) async {
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: FakeVoice(''));
+    await pumpApp(tester, s);
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('心願・願望'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('說完了，落籤'));
+    await tester.pumpAndSettle();
+    expect(find.text('第一籤'), findsOneWidget);
+  });
+
+  testWidgets('語音無法使用時改回打字', (tester) async {
+    final s = await makeServices(FixedDraw(1),
+        prefs: {'defaultInput': 'voice'}, voice: FakeVoice('', available: false));
+    await pumpApp(tester, s);
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('失物'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('已改成打字'), findsOneWidget);
+    expect(find.text('開始搖籤'), findsOneWidget, reason: '留在提問頁');
   });
 
   testWidgets('冬夜也能正常顯示首頁', (tester) async {

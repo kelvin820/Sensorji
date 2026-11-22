@@ -59,6 +59,8 @@ def import_data() -> None:
 
     shutil.copy(SRC_DATA / "poems_tw60.json", out / "poems_tw60.json")
     shutil.copy(SRC_DATA / "category_map.json", out / "category_map.json")
+    for deck in ("sensoji", "tw60"):
+        shutil.copy(SRC_DATA / f"line_gloss_{deck}.json", out / f"line_gloss_{deck}.json")
 
     judgments = json.loads((SRC_SLIPS / "sensoji_judgments.json").read_text("utf-8"))
     for j in judgments:
@@ -67,7 +69,7 @@ def import_data() -> None:
 
     manifest = json.loads((SRC_SLIPS / "manifest.json").read_text("utf-8"))
     (out / "slip_spec.json").write_text(json.dumps(manifest["spec"], ensure_ascii=False, indent=1), "utf-8")
-    log("data: 5 files")
+    log("data: 7 files")
 
 
 def import_slips() -> None:

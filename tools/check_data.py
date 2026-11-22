@@ -67,6 +67,15 @@ def main() -> int:
         if missing:
             notes.append(f"第 {p['number']} 籤判語缺分項 {sorted(missing)}（解籤時改附整段原文）")
 
+    for deck, poems in (("sensoji", sensoji), ("tw60", tw60)):
+        gloss = load(f"line_gloss_{deck}.json")
+        check([g["number"] for g in gloss["poems"]] == [p["number"] for p in poems], f"{deck} 逐句白話籤號不齊")
+        for g in gloss["poems"]:
+            check(len(g["gloss"]) == 4 and all(g["gloss"]), f"{deck} 第 {g['number']} 籤逐句白話不是四句")
+            check(all(len(s) <= 40 for s in g["gloss"]), f"{deck} 第 {g['number']} 籤逐句白話有句子超過 40 字")
+        if not gloss.get("reviewed"):
+            notes.append(f"{deck} 逐句白話尚未人工審閱（審完把 reviewed 改成 true）")
+
     check(len(categories) == 8, "提問類別需為 8 類")
     for c in categories:
         check(c["sensoji"] in JUDGMENT_KEYS, f"類別 {c['id']} 的淺草寺分項 {c['sensoji']} 不存在")

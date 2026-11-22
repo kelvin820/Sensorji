@@ -41,6 +41,7 @@ dependencies:
   google_fonts: ^9.0.0
   rive: ^0.14.11
   http: ^1.6.0
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_test:
@@ -68,3 +69,7 @@ flutter:
     - assets/sprites/
     - assets/textures/
     - assets/brand/
+  fonts:
+    - family: Bakudai
+      fonts:
+        - asset: assets/fonts/Bakudai.ttf
