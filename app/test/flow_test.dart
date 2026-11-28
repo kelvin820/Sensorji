@@ -157,8 +157,8 @@ void main() {
 
     await tester.tap(find.text('結籤：把籤繫在籤架上'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('把籤結上'));
-    await tester.pump(const Duration(milliseconds: 300)); // 一長一短震動的第二下
+    await tester.tap(find.text('幫我折好、結上'));
+    await tester.pump(const Duration(milliseconds: 400)); // 一長一短震動的第二下
     await tester.pumpAndSettle();
     expect(s.records.all.single.tied, isTrue);
   });
