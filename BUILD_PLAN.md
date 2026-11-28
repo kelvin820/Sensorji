@@ -87,7 +87,7 @@
 - [ ] **第 28 籤判語沒有「旅行」分項**（其他 99 籤都有）：選「旅行」時改附整段判語原文，並寫單元測試涵蓋。
 - [x] 淺草寺正版籤紙圖檔：已取得授權。
 - [ ] 確認新港奉天宮籤詩的使用授權範圍。
-- [ ] 每張籤紙「四句＋判語欄」的點擊熱區座標（見第 6 節）。
+- [x] 每張籤紙「四句＋判語欄」的點擊熱區座標（見第 6 節；2026-11-28，tools/hotspots.py）。
 - [ ] 統一圖檔路徑寫法：`poems_sensoji.json` 用 `籤詩_統一規格/3x/...`，manifest 用 `3x/...`；匯入 App 時一律改成 `app/assets/` 下的相對路徑。
 
 已核對（2026-11-21）：兩套籤筆數 100／60 齊全、每句字數正確（五言／七言）、六十甲子干支順序正確、淺草寺吉凶分布（大吉 17、吉 35、半吉 5、小吉 4、末小吉 3、末吉 6、凶 30）與判語檔逐籤一致；v2.7 素材 35 張背景皆 1080×2400、WebP 35 張齊全。
@@ -101,7 +101,7 @@
 - **語音轉文字**：Android 用 `speech_to_text`（系統 SpeechRecognizer，zh-TW）；Web 用 Web Speech API（僅 Chrome 系穩定），不支援時自動改打字。
 - **本機儲存**：`drift`（SQLite，Android 與 Web 都可用）。原本的 `hive`、`isar` 原作者已停止維護，不採用。
 - **後端（AI 解籤代理）：Vercel Serverless Function**（TypeScript），呼叫 **Gemini API（主）／NVIDIA API（備援）**（2026-11-22 改定；Claude Pro 訂閱不含 API 額度）；**API 金鑰只放後端**，App 端不得出現。供應商順序與模型 ID 放在環境變數，方便換版。
-- **Web 部署**：Vercel（同一個專案，靜態檔＋ `/api`）。**Vercel 的建置環境沒有 Flutter**：用 GitHub Actions 執行 `flutter build web`，再把建置結果與 `api/` 一起部署（`vercel deploy --prebuilt`）。
+- **Web 部署**：Vercel（同一個專案，靜態檔＋ `/api`）。Vercel 的建置環境沒有 Flutter，所以 buildCommand（`tools/vercel_build.sh`）先下載固定版本的 Flutter 再 `flutter build web` 到 `public/`；推到 main 就會連同 `/api` 一起部署，不需要 GitHub Actions 或 Vercel token（2026-11-28 改）。
 - **開發環境（目前這台電腦）**：已有 Android SDK、JDK 17、Git；**尚未安裝** Flutter／Dart、Node.js、Vercel CLI、Python（`tools/` 腳本需要）。
 
 ## 3. 專案骨架
@@ -148,9 +148,9 @@
 - [x] ② 籤棒落出（2026-11-22，Flutter 程式動畫）：籤筒前傾、籤棒慢慢從洞口滑出，脫手後空中翻一圈落定，旁邊以毛筆字由上而下逐字寫出「第○○籤」，寫完停 1 秒再以 1.1 秒淡入籤號頁，共約 4.4 秒（擲筊失敗重搖 2.4 秒）；搖一下與落地用 Android 馬達直接震動（可調強度，lib/logic/haptics.dart）；減少動態效果時直接顯示落定畫面。磬聲待補音效素材。
 - [x] ③ 百格籤櫃（2026-11-22，Flutter 程式動畫，lib/ui/widgets/cabinet.dart）：淺草寺整面 OB04（格子均分 10×10，1 號左上、逐列往右）鏡頭推近到該格、格子發光 → 換成 OB04_drawer_front 發光、逐字寫上籤號 → 拉開成 OB04_drawer_out，籤號移到下方紙籤牌，約 4.8 秒。六十甲子只有抽屜面發光寫號、不拉開（要先擲筊）。減少動態效果直接顯示最後一格。木頭摩擦聲待補音效素材。
 - [x] ④ 籤紙抽出・展開（2026-11-28，Flutter 程式動畫，lib/ui/widgets/slip_unfold.dart）：對折的籤紙從下方升起（先看到紙背）→ 上半張沿對折線往前翻開，對折處陰影隨之淡掉 → 斜射光掃過 → 平放置中，約 2.4 秒；兩種籤都適用。只在剛抽到時播（籤詩頁帶 extra kFreshDraw），從紀錄回看或減少動態效果時直接攤平。好籤「成」燈籠改在籤紙攤平（1.5 秒）後再降下。
-- [ ] ⑤ 定格細讀：雙指放大；點任一句 → 其他部分調暗、該句框起、浮出白話。
+- [x] ⑤ 定格細讀（2026-11-28，lib/ui/widgets/slip_reader.dart）：雙指放大；點任一句 → 其他部分調暗、該句朱紅框起、下方浮出這一句白話（可再開「看四句白話」）；點最左欄看判語分項（日文原文）；再點同一句或空白處收起。
   - [x] **逐句白話事先產生**（2026-11-22，待人工審閱）：用 LLM 批次產生 100 籤 × 4 句的白話，人工審過後存成 `data/line_gloss_sensoji.json`，App 直接讀取（不在每次點擊時呼叫 API）。仍符合「白話全部由 LLM 生成」。
-  - [ ] 熱區座標：寫 `tools/hotspots.py`，依 `manifest.json` 的共用外框，用投影法自動找出四句直欄與判語欄的位置，輸出 `data/hotspots_sensoji.json`。
+  - [x] 熱區座標（2026-11-28）：`tools/hotspots.py` 在每條框線的預期位置 ±28 px 內用投影法找墨色最多的那一欄／列（手繪框線常斷，固定門檻會漏），輸出 `app/assets/data/hotspots_sensoji.json`，100 籤全部找到、目視抽查無誤。
   - [ ] 做一個簡單的網頁校對工具，逐張疊框人工微調。
 - [ ] ⑥ 凶籤結籤（Rive）：拖曳把同一張籤紙折成細條、繫上籤架，繩結收緊時一聲風鈴，畫面漸暗。
 - [ ] 六十甲子籤版本：籤筒同款，落出後接擲筊動畫（Rive：筊杯拋起、落地彈跳、停定；輸入：結果 聖／笑／陰），再接籤詩文字逐行浮現。
@@ -186,7 +186,7 @@
 
 ## 10. Web 版
 
-- [ ] Flutter Web 建置（CanvasKit），由 GitHub Actions 建置後部署到 Vercel（見第 2 節）；PWA manifest 與圖示（用 IC01_icon_1024_sei，maskable 用 IC01_adaptive_fg_sei＋#F1EADC；2026-11-22 已產生）。
+- [x] Flutter Web 建置（CanvasKit），由 Vercel 建置時下載 Flutter 後部署（見第 2 節，2026-11-28）；PWA manifest 與圖示（用 IC01_icon_1024_sei，maskable 用 IC01_adaptive_fg_sei＋#F1EADC；2026-11-22 已產生）。
 - [ ] 版面以手機寬度為主，桌機置中顯示手機框，搖晃改點按。
 - [ ] 字型：**不要把內文字型子集化**——使用者的問題與 AI 回答可能出現任何字，子集化會缺字。介面固定文字可子集化；內文改用完整字型分片載入（Google Fonts 的 unicode-range 分片）或系統字型備援。
 - [ ] 圖檔用 WebP，只載當季素材。首屏目標：CanvasKit 本身約 1.5 MB 以上，4G 下 < 3 秒不實際；改為**首屏 < 5 秒、可互動前顯示載入畫面**，實測後再調。

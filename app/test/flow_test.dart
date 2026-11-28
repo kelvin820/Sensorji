@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:sensoji/app/scope.dart';
 import 'package:sensoji/app/theme.dart';
+import 'package:sensoji/data/models.dart';
 import 'package:sensoji/data/repository.dart';
 import 'package:sensoji/logic/draw.dart';
 import 'package:sensoji/logic/records.dart';
@@ -14,6 +15,7 @@ import 'package:sensoji/logic/voice.dart';
 import 'package:sensoji/main.dart';
 import 'package:sensoji/ui/widgets/cabinet.dart';
 import 'package:sensoji/ui/widgets/lantern.dart';
+import 'package:sensoji/ui/widgets/slip_reader.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 固定籤號的抽籤服務，讓流程測試可重現。
@@ -132,15 +134,21 @@ void main() {
     expect(find.text('結籤：把籤繫在籤架上'), findsOneWidget, reason: '凶籤要提供結籤');
     expect(find.byType(GoodLantern), findsNothing, reason: '凶籤不出現「成」燈籠');
 
-    // 逐句白話：點籤紙，四句白話一起浮出；按「收起」關掉。
-    await tester.tap(find.byType(InteractiveViewer));
+    // 分鏡 ⑤：點籤紙上的一句 → 只浮出這一句的白話；「看四句白話」→ 四句一起浮出；按「收起」關掉。
+    final line = s.poems.poem(Deck.sensoji, 3).lines.indexOf('愁惱損忠良');
+    tester.state<SlipReaderState>(find.byType(SlipReader)).select(line);
     await tester.pumpAndSettle();
-    expect(find.text('愁惱損忠良'), findsOneWidget);
+    expect(find.text('第 ${line + 1} 句'), findsOneWidget);
     expect(find.text('憂愁煩惱讓正直善良的人也受了折損。'), findsOneWidget);
+    expect(find.text('多餘的掛慮反而讓日子顯得更漫長難熬。'), findsNothing, reason: '只出點的那一句');
+    await tester.tap(find.text('看四句白話'));
+    await tester.pumpAndSettle();
+    expect(find.text('愁惱損忠良'), findsWidgets);
+    expect(find.text('憂愁煩惱讓正直善良的人也受了折損。'), findsWidgets);
     expect(find.text('多餘的掛慮反而讓日子顯得更漫長難熬。'), findsOneWidget, reason: '四句一起出');
     await tester.tap(find.text('收起'));
     await tester.pumpAndSettle();
-    expect(find.text('憂愁煩惱讓正直善良的人也受了折損。'), findsNothing);
+    expect(find.text('多餘的掛慮反而讓日子顯得更漫長難熬。'), findsNothing);
 
     final r = s.records.all.single;
     expect(r.number, 3);

@@ -6,13 +6,14 @@ import 'models.dart';
 
 /// 從 assets/data 載入全部籤詩資料（約 120 KB，啟動時一次載入）。
 class PoemRepository {
-  PoemRepository._(this._sensoji, this._tw60, this._judgments, this.categories, this._gloss);
+  PoemRepository._(this._sensoji, this._tw60, this._judgments, this.categories, this._gloss, this._hotspots);
 
   final Map<int, Poem> _sensoji;
   final Map<int, Poem> _tw60;
   final Map<int, Judgment> _judgments;
   final List<Category> categories;
   final Map<Deck, Map<int, List<String>>> _gloss;
+  final Map<int, SlipHotspots> _hotspots;
 
   static Future<PoemRepository> load([AssetBundle? bundle]) async {
     final b = bundle ?? rootBundle;
@@ -22,6 +23,7 @@ class PoemRepository {
     final tw60 = (await read('poems_tw60.json'))['poems'] as List;
     final judgments = await read('judgments_sensoji.json') as List;
     final cats = (await read('category_map.json'))['categories'] as List;
+    final hotspots = await read('hotspots_sensoji.json') as Map<String, dynamic>;
     Future<Map<int, List<String>>> gloss(String deck) async => {
           for (final j in (await read('line_gloss_$deck.json'))['poems'] as List)
             j['number'] as int: [for (final g in j['gloss'] as List) g as String],
@@ -33,6 +35,7 @@ class PoemRepository {
       {for (final j in judgments) j['number'] as int: Judgment.fromJson(j as Map<String, dynamic>)},
       [for (final j in cats) Category.fromJson(j as Map<String, dynamic>)],
       {Deck.sensoji: await gloss('sensoji'), Deck.tw60: await gloss('tw60')},
+      {for (final e in hotspots.entries) int.parse(e.key): SlipHotspots.fromJson(e.value as Map<String, dynamic>)},
     );
   }
 
@@ -44,6 +47,9 @@ class PoemRepository {
   List<String> gloss(Deck deck, int number) => _gloss[deck]?[number] ?? const [];
 
   Judgment? judgment(int number) => _judgments[number];
+
+  /// 淺草寺籤紙上四句與判語的位置（分鏡 ⑤）。
+  SlipHotspots? hotspots(int number) => _hotspots[number];
 
   Category category(String id) => categories.firstWhere((c) => c.id == id);
 }

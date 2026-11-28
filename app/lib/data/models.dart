@@ -1,6 +1,8 @@
 /// 籤詩資料模型（BUILD_PLAN 第 3 節）。
 library;
 
+import 'dart:ui' show Rect;
+
 enum Deck {
   sensoji('淺草寺觀音百籤', 100),
   tw60('台灣六十甲子籤', 60);
@@ -82,6 +84,30 @@ class Category {
         label: j['label'] as String,
         sensojiItem: j['sensoji'] as String,
         tw60Item: j['tw60'] as String,
+      );
+}
+
+/// 淺草寺籤紙上可以點的區域（分鏡 ⑤），座標是對整張籤紙圖的 0…1 比例。
+/// 由 tools/hotspots.py 從籤紙圖量出，存在 assets/data/hotspots_sensoji.json。
+class SlipHotspots {
+  const SlipHotspots({required this.lines, required this.judgment});
+
+  /// 四句，與 Poem.lines 同順序（第一句在籤紙最右欄）。
+  final List<Rect> lines;
+
+  /// 最左欄的判語。
+  final Rect judgment;
+
+  static Rect _rect(List<dynamic> v) => Rect.fromLTRB(
+        (v[0] as num).toDouble(),
+        (v[1] as num).toDouble(),
+        (v[2] as num).toDouble(),
+        (v[3] as num).toDouble(),
+      );
+
+  factory SlipHotspots.fromJson(Map<String, dynamic> j) => SlipHotspots(
+        lines: [for (final r in j['lines'] as List) _rect(r as List)],
+        judgment: _rect(j['judgment'] as List),
       );
 }
 

@@ -8,6 +8,7 @@ import '../../logic/records.dart';
 import '../widgets/common.dart';
 import '../widgets/lantern.dart';
 import '../widgets/season_scaffold.dart';
+import '../widgets/slip_reader.dart';
 import '../widgets/slip_unfold.dart';
 
 /// 進籤詩頁時帶這個 extra 表示剛抽到（播籤紙展開）。
@@ -32,6 +33,11 @@ class PoemScreen extends StatelessWidget {
     final poem = s.poems.poem(reading.deck, reading.number);
     final gloss = s.poems.gloss(poem.deck, poem.number);
     final hasGloss = gloss.length == poem.lines.length;
+    // 淺草寺籤紙可以點句（分鏡 ⑤）：要有熱區位置和白話
+    final hotspots = poem.deck == Deck.sensoji
+        ? s.poems.hotspots(poem.number)
+        : null;
+    final tapLines = hotspots != null && hasGloss;
     final text = Theme.of(context).textTheme;
     const fg = Palette.inkSoft; // 籤詩頁一律是和紙底
     final good = poem.isGood;
@@ -62,7 +68,16 @@ class PoemScreen extends StatelessWidget {
       child: Column(
         children: [
           Expanded(
-            child: poem.deck == Deck.sensoji
+            child: tapLines
+                ? SlipReader(
+                    poem: poem,
+                    hotspots: hotspots,
+                    gloss: gloss,
+                    judgment: s.poems.judgment(poem.number),
+                    onShowAll: openGloss,
+                    image: SlipUnfold(play: fresh, child: _slipImage(poem)),
+                  )
+                : poem.deck == Deck.sensoji
                 ? _SensojiSlip(
                     poem: poem,
                     fresh: fresh,
@@ -81,7 +96,7 @@ class PoemScreen extends StatelessWidget {
               children: [
                 Text(
                   [
-                    if (hasGloss) '點籤詩看白話',
+                    if (tapLines) '點任一句看白話' else if (hasGloss) '點籤詩看白話',
                     if (poem.deck == Deck.sensoji) '雙指可放大細讀',
                   ].join('・'),
                   textAlign: TextAlign.center,
@@ -132,27 +147,27 @@ class _SensojiSlip extends StatelessWidget {
             button: onTap != null,
             label: '第 ${poem.number} 籤 ${poem.rank}：${poem.lines.join('，')}',
             hint: onTap != null ? '點兩下看白話' : null,
-            child: SlipUnfold(
-              play: fresh,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  boxShadow: [
-                    BoxShadow(
-                      color: Palette.ink.withValues(alpha: 0.18),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Image.asset(poem.image!, fit: BoxFit.contain),
-              ),
-            ),
+            child: SlipUnfold(play: fresh, child: _slipImage(poem)),
           ),
         ),
       ),
     ),
   );
 }
+
+/// 正版籤紙圖，帶一點陰影。
+Widget _slipImage(Poem poem) => DecoratedBox(
+  decoration: BoxDecoration(
+    boxShadow: [
+      BoxShadow(
+        color: Palette.ink.withValues(alpha: 0.18),
+        blurRadius: 18,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  ),
+  child: Image.asset(poem.image!, fit: BoxFit.contain),
+);
 
 /// 四句直排，由右至左。點任一句 → 浮出白話，並標出點的那一句。
 class _Tw60Slip extends StatelessWidget {

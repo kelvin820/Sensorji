@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "echo 'API 已預先打包（api/interpret.js），不需安裝套件'",
-  "buildCommand": "echo 'Flutter Web 之後由 GitHub Actions 建置放進 public/'",
+  "buildCommand": "bash tools/vercel_build.sh",
   "outputDirectory": "public",
   "functions": {
     "api/interpret.js": { "maxDuration": 60 }
