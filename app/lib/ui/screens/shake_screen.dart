@@ -13,6 +13,7 @@ import '../../logic/session.dart';
 import '../../logic/settings.dart';
 import '../../logic/shake.dart';
 import '../../logic/voice.dart';
+import '../../logic/web_device.dart';
 import '../widgets/season_scaffold.dart';
 import '../widgets/shaker.dart';
 
@@ -33,6 +34,13 @@ class _ShakeScreenState extends State<ShakeScreen> {
   int _count = 0;
   bool _dropping = false;
   final _shaker = GlobalKey<ShakerState>();
+  final _random = Random();
+
+  /// 網頁版 iOS：要先點按允許動作感測才收得到搖晃。
+  bool _needMotionPermission = motionPermissionNeeded;
+
+  /// 桌機網頁（或使用者拒絕動作感測）：改成點籤筒／按空白鍵搖一下。
+  late bool _tapMode = isDesktopWeb;
 
   @override
   void didChangeDependencies() {
@@ -44,7 +52,7 @@ class _ShakeScreenState extends State<ShakeScreen> {
       sensitivity: settings.sensitivity,
       onShake: (intensity, _) => _onShake(intensity),
     )..start();
-    if (_voice) HardwareKeyboard.instance.addHandler(_onKey);
+    HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   bool get _voice => widget.session.inputMode == InputMode.voice;
@@ -58,7 +66,12 @@ class _ShakeScreenState extends State<ShakeScreen> {
   /// 語音模式：按住音量鍵說話，放開就當作問題講完、落籤。
   /// 回傳 true 表示吃掉這個按鍵，不讓系統調音量。
   bool _onKey(KeyEvent e) {
-    if (!_volumeKeys.contains(e.logicalKey)) return false;
+    // 桌機：空白鍵（或 Enter）＝搖一下
+    if (_tapMode && e is KeyDownEvent && (e.logicalKey == LogicalKeyboardKey.space || e.logicalKey == LogicalKeyboardKey.enter)) {
+      _tapShake();
+      return true;
+    }
+    if (!_voice || !_volumeKeys.contains(e.logicalKey)) return false;
     if (e is KeyDownEvent) _talkStart();
     if (e is KeyUpEvent) _talkEnd();
     return true;
@@ -84,7 +97,7 @@ class _ShakeScreenState extends State<ShakeScreen> {
 
   @override
   void dispose() {
-    if (_voice) HardwareKeyboard.instance.removeHandler(_onKey);
+    HardwareKeyboard.instance.removeHandler(_onKey);
     // 沒抽完就返回提問頁時，也要關掉麥克風。
     if (_voice && !_dropping) _voiceInput?.stop();
     _detector?.stop();
@@ -100,6 +113,25 @@ class _ShakeScreenState extends State<ShakeScreen> {
     setState(() => _count = min(_count + 1, shakesToDraw));
     // 語音模式不看搖晃次數：放開音量鍵（或按「說完了」）才落籤。
     if (!_voice && _count >= shakesToDraw) _dropStick();
+  }
+
+  /// 點籤筒搖一下（力道帶一點隨機，籤筒動作才不會每下都一樣）。
+  void _tapShake() => _onShake(0.55 + _random.nextDouble() * 0.35);
+
+  /// iOS 網頁：這個呼叫必須直接在點按裡做，不能先 await 別的。
+  void _askMotion() {
+    requestMotionPermission().then((ok) {
+      if (!mounted) return;
+      setState(() {
+        _needMotionPermission = false;
+        _tapMode = _tapMode || !ok;
+      });
+      if (ok) {
+        _detector
+          ?..stop()
+          ..start();
+      }
+    });
   }
 
   Future<void> _dropStick() async {
@@ -148,8 +180,10 @@ class _ShakeScreenState extends State<ShakeScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Center(
-                child: Shaker(
-                  key: _shaker,
+                child: GestureDetector(
+                  onTap: _tapMode && !_dropping ? _tapShake : null,
+                  child: Shaker(
+                    key: _shaker,
                   label: session.deck == Deck.sensoji ? '觀音籤' : '六十甲子',
                   progress: _count / shakesToDraw,
                   inkColor: fg,
@@ -159,6 +193,7 @@ class _ShakeScreenState extends State<ShakeScreen> {
                     Sounds.play(Sfx.stickLand);
                     Sounds.play(Sfx.bell, volume: 0.8, delay: const Duration(milliseconds: 320));
                   },
+                  ),
                 ),
               ),
             ),
@@ -216,7 +251,13 @@ class _ShakeScreenState extends State<ShakeScreen> {
               ),
             ),
           ] else ...[
-            Text('拿穩手機，上下輕搖', style: text.bodyMedium?.copyWith(color: fg)),
+            if (_needMotionPermission)
+              FilledButton(onPressed: _dropping ? null : _askMotion, child: const Text('允許動作感測，開始搖籤'))
+            else
+              Text(
+                _tapMode ? '點一下籤筒（或按空白鍵）搖一下' : '拿穩手機，上下輕搖',
+                style: text.bodyMedium?.copyWith(color: fg),
+              ),
             const SizedBox(height: 8),
             TextButton(
               onPressed: _dropping ? null : _dropStick,

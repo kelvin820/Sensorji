@@ -43,8 +43,40 @@
 
   <title>心想事</title>
   <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F1EADC">
+  <style>
+    html, body { margin: 0; height: 100%; background: #F1EADC; }
+    @media (min-width: 640px) { html, body { background: #241B16; } }
+    #loader {
+      position: fixed; inset: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #F1EADC; color: #2A221C;
+      font-family: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+      transition: opacity .5s ease;
+    }
+    #loader.gone { opacity: 0; pointer-events: none; }
+    #loader img { width: 112px; height: 112px; animation: sway 2.4s ease-in-out infinite; transform-origin: 50% 0; }
+    #loader h1 { margin: 20px 0 6px; font-size: 32px; font-weight: 600; letter-spacing: .3em; padding-left: .3em; }
+    #loader p { margin: 0; font-size: 14px; color: #6B5D4C; letter-spacing: .1em; min-height: 1.4em; }
+    #loader .bar { margin-top: 22px; width: 120px; height: 2px; background: #D8C9AE; overflow: hidden; border-radius: 1px; }
+    #loader .bar::after { content: ""; display: block; width: 40%; height: 100%; background: #B5321F; animation: slide 1.4s ease-in-out infinite; }
+    @keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+    @media (min-width: 640px) {
+      #loader { background: #241B16; color: #F6EEDD; }
+      #loader p { color: #C9BFAE; }
+      #loader .bar { background: #4A3A30; }
+    }
+    @media (prefers-reduced-motion: reduce) { #loader img, #loader .bar::after { animation: none; } }
+  </style>
 </head>
 <body>
+  <div id="loader" role="status" aria-live="polite">
+    <img src="icons/Icon-192.png" alt="">
+    <h1>心想事</h1>
+    <p id="loader-status">載入中…</p>
+    <div class="bar"></div>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

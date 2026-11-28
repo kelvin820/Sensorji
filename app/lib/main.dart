@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +8,7 @@ import 'app/theme.dart';
 import 'data/repository.dart';
 import 'logic/records.dart';
 import 'logic/settings.dart';
+import 'ui/widgets/web_frame.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,6 +43,8 @@ class _SensojiAppState extends State<SensojiApp> {
         theme: _theme,
         locale: const Locale('zh', 'TW'),
         routerConfig: _router,
+        // 網頁版在寬螢幕上放進直式手機框
+        builder: kIsWeb ? (context, child) => WebFrame(child: child!) : null,
       ),
     );
   }
