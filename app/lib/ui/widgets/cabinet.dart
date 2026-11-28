@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../logic/draw.dart';
+import '../../logic/sounds.dart';
 
 /// 分鏡 ③ 百籤櫃（Flutter 程式動畫，取代原本規劃的 Rive）。
 ///
@@ -57,6 +58,19 @@ class _DrawerCabinetState extends State<DrawerCabinet> with TickerProviderStateM
   );
   late final AnimationController _breath = AnimationController(vsync: this, duration: const Duration(seconds: 3));
   bool? _reduced;
+  bool _drawerSound = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 抽屜開始拉開：木頭摩擦聲（只在播動畫時）
+    _c.addListener(() {
+      if (_wall && !_drawerSound && _c.isAnimating && _c.value * kCabinetDuration.inMilliseconds >= _open.$1) {
+        _drawerSound = true;
+        Sounds.play(Sfx.drawer);
+      }
+    });
+  }
 
   @override
   void didChangeDependencies() {

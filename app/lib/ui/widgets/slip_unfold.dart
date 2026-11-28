@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/theme.dart';
+import '../../logic/sounds.dart';
 
 /// 分鏡 ④ 籤紙抽出・展開（Flutter 程式動畫）。
 ///
@@ -46,6 +47,7 @@ class _SlipUnfoldState extends State<SlipUnfold> with SingleTickerProviderStateM
       _c.value = 1;
     } else {
       _c.forward();
+      Sounds.play(Sfx.unfold); // 紙張沙沙展開
     }
   }
 

@@ -8,6 +8,7 @@ import '../../app/scope.dart';
 import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../logic/haptics.dart';
+import '../../logic/sounds.dart';
 import '../../logic/session.dart';
 import '../../logic/settings.dart';
 import '../../logic/shake.dart';
@@ -94,6 +95,7 @@ class _ShakeScreenState extends State<ShakeScreen> {
     if (_dropping) return;
     final s = AppScope.of(context);
     if (s.settings.haptics) Haptics.shake(intensity);
+    Sounds.clack(intensity); // 竹籤在筒裡互碰
     _shaker.currentState?.kick(intensity);
     setState(() => _count = min(_count + 1, shakesToDraw));
     // 語音模式不看搖晃次數：放開音量鍵（或按「說完了」）才落籤。
@@ -153,6 +155,9 @@ class _ShakeScreenState extends State<ShakeScreen> {
                   inkColor: fg,
                   onLand: () {
                     if (AppScope.of(context).settings.haptics) Haptics.land();
+                    // 籤落地一聲，接著敲磬
+                    Sounds.play(Sfx.stickLand);
+                    Sounds.play(Sfx.bell, volume: 0.8, delay: const Duration(milliseconds: 320));
                   },
                 ),
               ),

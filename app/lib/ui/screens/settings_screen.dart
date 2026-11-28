@@ -36,6 +36,11 @@ class SettingsScreen extends StatelessWidget {
                 value: st.haptics,
                 onChanged: (v) => st.haptics = v,
               ),
+              SwitchListTile(
+                title: const Text('音效'),
+                value: st.sound,
+                onChanged: (v) => st.sound = v,
+              ),
             ]),
             _Group('解說', [
               _choice<Tone>(context, '解說語氣', Tone.values, st.tone, (v) => v.label, (v) => st.tone = v),

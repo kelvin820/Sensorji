@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/scope.dart';
 import '../../logic/haptics.dart';
 import '../../logic/records.dart';
+import '../../logic/sounds.dart';
 import '../widgets/common.dart';
 import '../widgets/season_scaffold.dart';
 import '../widgets/tie_fold.dart';
@@ -25,6 +26,7 @@ class _TieScreenState extends State<TieScreen> {
 
   /// 繩結收緊：存成已結籤，一長一短震動。
   Future<void> _knot(Reading r) async {
+    Sounds.play(Sfx.chime); // 繩結收緊：風鈴
     if (_haptics) {
       Haptics.pulse(220, 1);
       Future<void>.delayed(const Duration(milliseconds: 380), () => Haptics.pulse(60, 0.6));
@@ -73,6 +75,7 @@ class _TieScreenState extends State<TieScreen> {
                   tied: r.tied,
                   onFoldStep: (_) {
                     if (_haptics) Haptics.pulse(25, 0.35); // 每折一折
+                    Sounds.play(Sfx.fold, volume: 0.8);
                   },
                   onKnot: () => _knot(r),
                   onDone: () {

@@ -5,6 +5,7 @@ import '../data/models.dart';
 import 'draw.dart';
 import 'season.dart';
 import 'shake.dart';
+import 'sounds.dart';
 
 enum Tone {
   gentle('溫和'),
@@ -25,7 +26,9 @@ enum InputMode {
 
 /// 設定頁的所有選項（BUILD_PLAN 第 4 節 10 設定），存在本機。
 class Settings extends ChangeNotifier {
-  Settings(this._prefs);
+  Settings(this._prefs) {
+    Sounds.enabled = sound;
+  }
 
   final SharedPreferences _prefs;
 
@@ -66,6 +69,14 @@ class Settings extends ChangeNotifier {
   bool get haptics => _prefs.getBool('haptics') ?? true;
   set haptics(bool v) {
     _prefs.setBool('haptics', v);
+    notifyListeners();
+  }
+
+  /// 音效（竹籤聲、磬、抽屜、紙張、風鈴、筊杯落地）。
+  bool get sound => _prefs.getBool('sound') ?? true;
+  set sound(bool v) {
+    _prefs.setBool('sound', v);
+    Sounds.enabled = v;
     notifyListeners();
   }
 
