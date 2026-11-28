@@ -7,6 +7,7 @@ import '../../app/theme.dart';
 import '../../logic/draw.dart';
 import '../../logic/session.dart';
 import '../widgets/season_scaffold.dart';
+import 'poem_screen.dart' show kFreshDraw;
 import 'number_screen.dart' show saveDrawn;
 
 /// 05 擲筊（僅六十甲子籤）：依設定需 1 次或連續 3 次聖杯，失敗即回搖籤。
@@ -49,7 +50,7 @@ class _JiaobeiScreenState extends State<JiaobeiScreen> {
     final jiao = _jiao!;
     if (jiao.status == JiaobeiStatus.confirmed) {
       final id = await saveDrawn(context, session);
-      if (mounted) context.pushReplacement('/poem/$id');
+      if (mounted) context.pushReplacement('/poem/$id', extra: kFreshDraw);
     } else {
       session
         ..attempt += 1

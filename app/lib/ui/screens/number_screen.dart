@@ -10,6 +10,7 @@ import '../../logic/records.dart';
 import '../../logic/session.dart';
 import '../widgets/cabinet.dart';
 import '../widgets/season_scaffold.dart';
+import 'poem_screen.dart' show kFreshDraw;
 import 'ask_screen.dart' show maxQuestionChars;
 
 /// 04 籤號落出：籤號、可修改的問題、看籤詩或擲筊確認。
@@ -42,7 +43,7 @@ class _NumberScreenState extends State<NumberScreen> {
       return;
     }
     final id = await saveDrawn(context, session);
-    if (mounted) context.pushReplacement('/poem/$id');
+    if (mounted) context.pushReplacement('/poem/$id', extra: kFreshDraw);
   }
 
   @override

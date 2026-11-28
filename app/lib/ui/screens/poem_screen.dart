@@ -8,14 +8,21 @@ import '../../logic/records.dart';
 import '../widgets/common.dart';
 import '../widgets/lantern.dart';
 import '../widgets/season_scaffold.dart';
+import '../widgets/slip_unfold.dart';
+
+/// 進籤詩頁時帶這個 extra 表示剛抽到（播籤紙展開）。
+const kFreshDraw = 'fresh-draw';
 
 /// 06 籤詩（淺草寺：正版籤紙）／06b（六十甲子籤：四句直排）。
 /// 點籤紙 → 背景調暗，浮出紙卡，四句原文與白話一起顯示（BUILD_PLAN 第 6 節 ⑤）。
 /// 淺草寺大吉／吉：右上角降下「成」燈籠，掛在籤紙右上角上方（刻意重疊，籤紙維持原本大小）；
 /// 籤紀錄回看時也一樣。
 class PoemScreen extends StatelessWidget {
-  const PoemScreen({super.key, required this.readingId});
+  const PoemScreen({super.key, required this.readingId, this.fresh = false});
   final String readingId;
+
+  /// 剛抽到（播籤紙展開動畫）；從紀錄回看為 false。
+  final bool fresh;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +43,14 @@ class PoemScreen extends StatelessWidget {
     return SeasonScaffold(
       season: reading.season,
       // 用籤詩頁外層的 MediaQuery（Scaffold 內的上方留白已含 AppBar 高度）。
-      foreground: good ? MediaQuery(data: mq, child: const GoodLantern()) : null,
+      foreground: good
+          ? MediaQuery(
+              data: mq,
+              child: GoodLantern(
+                after: fresh ? kSlipUnfoldEnd : kSlipUnfoldDuration,
+              ),
+            )
+          : null,
       appBar: AppBar(
         title: Text(drawTitle(poem.number, poem.tag)),
         leading: IconButton(
@@ -49,8 +63,16 @@ class PoemScreen extends StatelessWidget {
         children: [
           Expanded(
             child: poem.deck == Deck.sensoji
-                ? _SensojiSlip(poem: poem, onTap: hasGloss ? openGloss : null)
-                : _Tw60Slip(poem: poem, onTapLine: hasGloss ? openGloss : null),
+                ? _SensojiSlip(
+                    poem: poem,
+                    fresh: fresh,
+                    onTap: hasGloss ? openGloss : null,
+                  )
+                : _Tw60Slip(
+                    poem: poem,
+                    fresh: fresh,
+                    onTapLine: hasGloss ? openGloss : null,
+                  ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 4, 24, 16),
@@ -89,8 +111,9 @@ class PoemScreen extends StatelessWidget {
 }
 
 class _SensojiSlip extends StatelessWidget {
-  const _SensojiSlip({required this.poem, this.onTap});
+  const _SensojiSlip({required this.poem, required this.fresh, this.onTap});
   final Poem poem;
+  final bool fresh;
   final VoidCallback? onTap;
 
   @override
@@ -109,17 +132,20 @@ class _SensojiSlip extends StatelessWidget {
             button: onTap != null,
             label: '第 ${poem.number} 籤 ${poem.rank}：${poem.lines.join('，')}',
             hint: onTap != null ? '點兩下看白話' : null,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Palette.ink.withValues(alpha: 0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
+            child: SlipUnfold(
+              play: fresh,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Palette.ink.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Image.asset(poem.image!, fit: BoxFit.contain),
               ),
-              child: Image.asset(poem.image!, fit: BoxFit.contain),
             ),
           ),
         ),
@@ -130,8 +156,9 @@ class _SensojiSlip extends StatelessWidget {
 
 /// 四句直排，由右至左。點任一句 → 浮出白話，並標出點的那一句。
 class _Tw60Slip extends StatelessWidget {
-  const _Tw60Slip({required this.poem, this.onTapLine});
+  const _Tw60Slip({required this.poem, required this.fresh, this.onTapLine});
   final Poem poem;
+  final bool fresh;
   final ValueChanged<int>? onTapLine;
 
   @override
@@ -141,53 +168,56 @@ class _Tw60Slip extends StatelessWidget {
     );
     final text = Theme.of(context).textTheme;
     return Center(
-      child: PaperCard(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '第 ${poem.number} 籤　${poem.ganzhi}',
-              style: text.titleLarge?.copyWith(color: Palette.vermilionDeep),
-            ),
-            const SizedBox(height: 16),
-            Semantics(
-              label: poem.lines.join('，'),
-              button: onTapLine != null,
-              hint: onTapLine != null ? '點兩下看白話' : null,
-              onTap: onTapLine == null ? null : () => onTapLine!(0),
-              child: ExcludeSemantics(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  textDirection: TextDirection.rtl,
-                  children: [
-                    for (final (i, line) in poem.lines.indexed)
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: onTapLine == null ? null : () => onTapLine!(i),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          child: Column(
-                            children: [
-                              for (final ch in line.characters)
-                                Text(ch, style: style),
-                            ],
+      child: SlipUnfold(
+        play: fresh,
+        child: PaperCard(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '第 ${poem.number} 籤　${poem.ganzhi}',
+                style: text.titleLarge?.copyWith(color: Palette.vermilionDeep),
+              ),
+              const SizedBox(height: 16),
+              Semantics(
+                label: poem.lines.join('，'),
+                button: onTapLine != null,
+                hint: onTapLine != null ? '點兩下看白話' : null,
+                onTap: onTapLine == null ? null : () => onTapLine!(0),
+                child: ExcludeSemantics(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      for (final (i, line) in poem.lines.indexed)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onTapLine == null ? null : () => onTapLine!(i),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            child: Column(
+                              children: [
+                                for (final ch in line.characters)
+                                  Text(ch, style: style),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '籤詩參考新港奉天宮版本',
-              style: text.bodySmall?.copyWith(color: Palette.inkSoft),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                '籤詩參考新港奉天宮版本',
+                style: text.bodySmall?.copyWith(color: Palette.inkSoft),
+              ),
+            ],
+          ),
         ),
       ),
     );

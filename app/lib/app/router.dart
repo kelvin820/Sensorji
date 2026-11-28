@@ -43,7 +43,11 @@ GoRouter buildRouter() {
         ),
       ),
       GoRoute(path: '/jiaobei', builder: (_, s) => withSession(s, (x) => JiaobeiScreen(session: x))),
-      GoRoute(path: '/poem/:id', builder: (_, s) => PoemScreen(readingId: s.pathParameters['id']!)),
+      // extra 為 kFreshDraw：剛抽到，播籤紙展開（分鏡 ④）；從紀錄回看或重新整理則直接攤平。
+      GoRoute(
+        path: '/poem/:id',
+        builder: (_, s) => PoemScreen(readingId: s.pathParameters['id']!, fresh: s.extra == kFreshDraw),
+      ),
       GoRoute(path: '/interpret/:id', builder: (_, s) => InterpretScreen(readingId: s.pathParameters['id']!)),
       GoRoute(path: '/tie/:id', builder: (_, s) => TieScreen(readingId: s.pathParameters['id']!)),
       GoRoute(path: '/records', builder: (_, _) => const RecordsScreen()),

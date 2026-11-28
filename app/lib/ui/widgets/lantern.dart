@@ -26,8 +26,8 @@ const kGoodLanternRight = 12.0;
 /// 停住時，頂環在狀態列下方多少（吊繩從畫面頂端垂下來接到頂環）。
 const kGoodLanternRingTop = 14.0;
 
-/// 籤紙展開完成的時間點。目前籤紙沒有展開動畫，以進入籤詩頁的換頁轉場（約 0.3 秒）為準；
-/// 之後做了展開動畫，改這個常數即可。
+/// 籤紙已經攤平時（從紀錄回看）的等待：以進入籤詩頁的換頁轉場（約 0.3 秒）為準。
+/// 剛抽到時籤紙有展開動畫（分鏡 ④），改等 [kSlipUnfoldEnd]，由 [GoodLantern.after] 傳入。
 const kSlipUnfoldDuration = Duration(milliseconds: 300);
 
 /// 展開完成後再等 0.4 秒才開始降下。
@@ -50,7 +50,10 @@ double goodLanternWidth(Size screen) =>
 
 /// 好籤時從右上角沿吊繩降下的「成」燈籠，放在整個畫面最上層，不吃點擊。
 class GoodLantern extends StatefulWidget {
-  const GoodLantern({super.key});
+  const GoodLantern({super.key, this.after = kSlipUnfoldDuration});
+
+  /// 籤紙攤平的時間點；再等 [kGoodLanternDelay] 才開始降下。
+  final Duration after;
 
   @override
   State<GoodLantern> createState() => _GoodLanternState();
@@ -79,7 +82,7 @@ class _GoodLanternState extends State<GoodLantern> with TickerProviderStateMixin
     } else {
       _fade.value = 1;
       if (first) {
-        Future.delayed(kSlipUnfoldDuration + kGoodLanternDelay, () {
+        Future.delayed(widget.after + kGoodLanternDelay, () {
           if (!_disposed) _drop.forward();
         });
       } else {

@@ -10,9 +10,15 @@ import 'package:http/http.dart' as http;
 import '../data/models.dart';
 import 'settings.dart';
 
-/// 解籤服務網址。Web 預設同網域；Android 需在建置時給（網址寫在 app/dart_defines.json）：
-/// flutter build apk --dart-define-from-file=dart_defines.json
-const apiBase = String.fromEnvironment('API_BASE');
+/// 已部署的解籤服務（Vercel）。
+const kDeployedApi = 'https://sensorji-draw.vercel.app';
+
+/// 建置時可用 --dart-define-from-file=dart_defines.json 改網址（例如指向測試站）。
+const _apiBaseDefine = String.fromEnvironment('API_BASE');
+
+/// 解籤服務網址。Web 預設同網域；App 沒給網址時用已部署的服務，
+/// 免得建置時漏了 dart-define 就整個解籤失效（2026-11-28 發生過）。
+String get apiBase => _apiBaseDefine.isNotEmpty ? _apiBaseDefine : (kIsWeb ? '' : kDeployedApi);
 
 enum InterpretSection {
   meaning('籤意白話'),
