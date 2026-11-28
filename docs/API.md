@@ -19,6 +19,7 @@
 ## 回應
 
 - 400 `bad_request`、413 `too_large`、429 `rate_limited`、503 `unavailable`（後端沒有設定任何供應商金鑰）：JSON `{"error":{"code","message"}}`，`message` 可直接顯示給使用者。
+- 429 的上限（`server/lib/ratelimit.ts`）：每個 IP 每小時 10 次、每天 30 次，全站每天 500 次（台灣時間換日，可用環境變數 `RATE_LIMIT_PER_HOUR`／`_PER_DAY`／`_GLOBAL_PER_DAY` 調整）；回應帶 `Retry-After`（秒）。計數放 Upstash Redis，沒設定時退回單一執行個體的記憶體計數。
 - 200：`text/event-stream`，事件依序：
 
 | 事件 | data | 說明 |

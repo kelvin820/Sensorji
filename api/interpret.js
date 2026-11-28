@@ -3638,30 +3638,99 @@ function configuredProviders() {
 }
 
 // server/lib/ratelimit.ts
-var WINDOW_SECONDS = 60 * 60;
-var MAX_PER_WINDOW = Number(process.env.RATE_LIMIT_PER_HOUR ?? 30);
-async function allowRequest(key) {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return true;
-  const bucket = Math.floor(Date.now() / 1e3 / WINDOW_SECONDS);
-  const redisKey = `rl:interpret:${key}:${bucket}`;
-  try {
-    const res = await fetch(`${url}/pipeline`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify([
-        ["INCR", redisKey],
-        ["EXPIRE", redisKey, String(WINDOW_SECONDS)]
-      ])
-    });
-    if (!res.ok) return true;
-    const [incr] = await res.json();
-    return incr.result <= MAX_PER_WINDOW;
-  } catch {
-    return true;
-  }
+var HOUR = 60 * 60;
+var DAY = 24 * HOUR;
+var TZ_OFFSET = 8 * HOUR;
+function limits() {
+  const num = (name, fallback) => {
+    const v = Number(process.env[name]);
+    return Number.isFinite(v) && v > 0 ? v : fallback;
+  };
+  return {
+    hour: num("RATE_LIMIT_PER_HOUR", 10),
+    day: num("RATE_LIMIT_PER_DAY", 30),
+    global: num("RATE_LIMIT_GLOBAL_PER_DAY", 500)
+  };
 }
+function redisConfig() {
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  return url && token ? { url, token } : null;
+}
+function buckets(nowMs) {
+  const s = Math.floor(nowMs / 1e3);
+  const hour = Math.floor(s / HOUR);
+  const local = s + TZ_OFFSET;
+  const day = Math.floor(local / DAY);
+  return {
+    hour,
+    day,
+    hourLeft: HOUR - s % HOUR,
+    dayLeft: DAY - local % DAY
+  };
+}
+async function redisIncr(cfg, keys) {
+  const commands = keys.flatMap(([k, ttl]) => [
+    ["INCR", k],
+    ["EXPIRE", k, String(ttl)]
+  ]);
+  const res = await fetch(`${cfg.url}/pipeline`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${cfg.token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(commands),
+    signal: AbortSignal.timeout(2e3)
+    // 限流不能拖慢解籤
+  });
+  if (!res.ok) throw new Error(`redis ${res.status}`);
+  const out = await res.json();
+  return keys.map((_, i) => {
+    const r = out[i * 2];
+    if (r?.error || typeof r?.result !== "number") throw new Error("redis result");
+    return r.result;
+  });
+}
+var memory = /* @__PURE__ */ new Map();
+function memoryIncr(keys) {
+  if (memory.size > 1e4) memory.clear();
+  return keys.map(([k]) => {
+    const n = (memory.get(k) ?? 0) + 1;
+    memory.set(k, n);
+    return n;
+  });
+}
+var warned = false;
+async function incr(keys) {
+  const cfg = redisConfig();
+  if (cfg) {
+    try {
+      return await redisIncr(cfg, keys);
+    } catch (e) {
+      console.error(`ratelimit: redis failed (${e instanceof Error ? e.message : "error"}), using memory`);
+    }
+  } else if (!warned) {
+    warned = true;
+    console.warn("ratelimit: no Upstash Redis configured, using per-instance memory");
+  }
+  return memoryIncr(keys);
+}
+async function checkRequest(key, nowMs = Date.now()) {
+  const max = limits();
+  const b = buckets(nowMs);
+  const [perHour, perDay] = await incr([
+    [`rl:interpret:${key}:h${b.hour}`, HOUR],
+    [`rl:interpret:${key}:d${b.day}`, DAY]
+  ]);
+  if (perDay > max.day) return { ok: false, reason: "day", retryAfter: b.dayLeft };
+  if (perHour > max.hour) return { ok: false, reason: "hour", retryAfter: b.hourLeft };
+  const [global] = await incr([[`rl:interpret:all:d${b.day}`, DAY]]);
+  if (global > max.global) return { ok: false, reason: "global", retryAfter: b.dayLeft };
+  return { ok: true };
+}
+var LIMIT_MESSAGES = {
+  hour: "\u9019\u4E00\u5C0F\u6642\u6C42\u7C64\u7684\u6B21\u6578\u5DF2\u7D93\u6EFF\u4E86\uFF0C\u4F11\u606F\u4E00\u4E0B\uFF0C\u7A0D\u5F8C\u518D\u4F86",
+  day: "\u4ECA\u5929\u6C42\u7C64\u7684\u6B21\u6578\u5DF2\u7D93\u6EFF\u4E86\uFF0C\u660E\u5929\u518D\u4F86\u5427",
+  global: "\u4ECA\u5929\u7684\u89E3\u7C64\u670D\u52D9\u5DF2\u7D93\u984D\u6EFF\uFF0C\u8ACB\u660E\u5929\u518D\u8A66"
+};
 function clientKey(req) {
   const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return `ip:${fwd || req.headers.get("x-real-ip") || "unknown"}`;
@@ -3773,8 +3842,11 @@ async function POST(request) {
     console.error("interpret: no provider key configured");
     return json(503, "unavailable", "\u89E3\u7C64\u670D\u52D9\u5C1A\u672A\u8A2D\u5B9A");
   }
-  if (!await allowRequest(clientKey(request))) {
-    return json(429, "rate_limited", "\u6C42\u7C64\u592A\u983B\u7E41\u4E86\uFF0C\u8ACB\u7A0D\u5F8C\u518D\u8A66");
+  const limit = await checkRequest(clientKey(request));
+  if (!limit.ok) {
+    const res = json(429, "rate_limited", LIMIT_MESSAGES[limit.reason]);
+    res.headers.set("Retry-After", String(limit.retryAfter));
+    return res;
   }
   const user = buildUserMessage(req);
   const encoder = new TextEncoder();

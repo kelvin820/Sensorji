@@ -4,7 +4,7 @@
 // 隱私：不記錄使用者問題；錯誤記錄只留供應商名稱與錯誤碼。
 import { BadRequest, buildUserMessage, parseRequest, SYSTEM_PROMPT } from "./lib/prompt.ts";
 import { configuredProviders, ProviderError } from "./lib/providers.ts";
-import { allowRequest, clientKey } from "./lib/ratelimit.ts";
+import { checkRequest, clientKey, LIMIT_MESSAGES } from "./lib/ratelimit.ts";
 import { SectionParser, type SectionEvent } from "./lib/sections.ts";
 
 export const maxDuration = 60;
@@ -48,8 +48,11 @@ export async function POST(request: Request): Promise<Response> {
     return json(503, "unavailable", "解籤服務尚未設定");
   }
 
-  if (!(await allowRequest(clientKey(request)))) {
-    return json(429, "rate_limited", "求籤太頻繁了，請稍後再試");
+  const limit = await checkRequest(clientKey(request));
+  if (!limit.ok) {
+    const res = json(429, "rate_limited", LIMIT_MESSAGES[limit.reason]);
+    res.headers.set("Retry-After", String(limit.retryAfter));
+    return res;
   }
 
   const user = buildUserMessage(req);
