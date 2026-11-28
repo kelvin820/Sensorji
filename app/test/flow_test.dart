@@ -40,9 +40,10 @@ Future<void> loadPoems() async => poems = await PoemRepository.load(rootBundle);
 
 /// 假的語音輸入：開始後「聽到」固定的一句話。
 class FakeVoice extends VoiceInput {
-  FakeVoice(this.heard, {this.available = true});
+  FakeVoice(this.heard, {this.available = true, this.fakeLevel});
   final String heard;
   final bool available;
+  final double? fakeLevel;
   String _text = '';
   bool _listening = false;
   bool stopped = false;
@@ -51,6 +52,8 @@ class FakeVoice extends VoiceInput {
   String get text => _text;
   @override
   bool get listening => _listening;
+  @override
+  double? get level => fakeLevel;
 
   @override
   Future<bool> prepare() async => available;
@@ -302,6 +305,37 @@ void main() {
     await tester.tap(find.text('說完了，落籤'));
     await tester.pumpAndSettle();
     expect(find.byWidgetPredicate((w) => w is DrawerCabinet && w.number == 1), findsOneWidget);
+  });
+
+  testWidgets('語音提問：顯示錄音秒數與音量條，可以「停止錄音，改打字」', (tester) async {
+    final voice = FakeVoice('下個月搬家順利嗎', fakeLevel: 0.6);
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: voice);
+    await pumpApp(tester, s);
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('搬家・新居'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('voice-level')), findsNothing, reason: '還沒收音');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.audioVolumeUp);
+    await tester.pump();
+    expect(find.text('0:00'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-level')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('0:02'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('停止錄音，改打字'));
+    await tester.tap(find.text('停止錄音，改打字'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.audioVolumeUp);
+    await tester.pumpAndSettle();
+    expect(voice.stopped, isTrue);
+    expect(find.text('開始搖籤'), findsOneWidget, reason: '回到提問頁');
+    expect(find.widgetWithText(TextField, '下個月搬家順利嗎'), findsOneWidget, reason: '聽到的字帶回問題框');
+    expect(find.byType(DrawerCabinet), findsNothing, reason: '沒有落籤');
   });
 
   testWidgets('語音無法使用時改回打字', (tester) async {

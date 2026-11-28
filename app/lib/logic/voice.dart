@@ -15,6 +15,9 @@ abstract class VoiceInput extends ChangeNotifier {
   String get text;
   bool get listening;
 
+  /// 目前的音量（0–1），用來畫音量條；平台不提供時是 null（Web）。
+  double? get level => null;
+
   /// 準備麥克風（第一次會跳出權限要求）。回傳 false 表示無法使用
   /// （沒有麥克風權限、裝置或瀏覽器不支援）。在提問頁按「開始搖籤」時呼叫。
   Future<bool> prepare();
@@ -36,6 +39,7 @@ class SpeechVoiceInput extends VoiceInput {
   int _restarts = 0;
   String _done = ''; // 前幾段已確定的文字
   String _partial = '';
+  double _level = 0;
 
   static const _maxRestarts = 6;
 
@@ -50,6 +54,10 @@ class SpeechVoiceInput extends VoiceInput {
 
   @override
   bool get listening => _stt.isListening;
+
+  /// Android 的 SpeechRecognizer 回報約 -2～10（dB 的相對值）；Web 不提供音量。
+  @override
+  double? get level => kIsWeb ? null : (_stt.isListening ? _level : 0);
 
   String get _locale => kIsWeb ? 'zh-TW' : 'zh_TW';
 
@@ -84,6 +92,7 @@ class SpeechVoiceInput extends VoiceInput {
     try {
       await _stt.listen(
         onResult: _onResult,
+        onSoundLevelChange: _onLevel,
         listenOptions: SpeechListenOptions(
           localeId: _locale,
           partialResults: true,
@@ -96,6 +105,13 @@ class SpeechVoiceInput extends VoiceInput {
     } catch (_) {
       _wanted = false;
     }
+    notifyListeners();
+  }
+
+  void _onLevel(double db) {
+    final v = ((db + 2) / 12).clamp(0.0, 1.0);
+    // 往上快、往下慢，音量條才不會一直抖
+    _level = v > _level ? v : _level * 0.7 + v * 0.3;
     notifyListeners();
   }
 

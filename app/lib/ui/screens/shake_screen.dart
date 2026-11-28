@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:material_ui/material_ui.dart';
@@ -61,6 +62,23 @@ class _ShakeScreenState extends State<ShakeScreen> {
   /// 正按著音量鍵或「按住說話」。
   bool _talking = false;
 
+  /// 這次按住說了幾秒（畫面上顯示，讓人知道還在錄）。
+  int _talkSeconds = 0;
+  Timer? _talkTimer;
+
+  void _startTalkTimer() {
+    _talkTimer?.cancel();
+    _talkSeconds = 0;
+    _talkTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _talkSeconds++);
+    });
+  }
+
+  void _stopTalkTimer() {
+    _talkTimer?.cancel();
+    _talkTimer = null;
+  }
+
   static final _volumeKeys = {LogicalKeyboardKey.audioVolumeUp, LogicalKeyboardKey.audioVolumeDown};
 
   /// 語音模式：按住音量鍵說話，放開就當作問題講完、落籤。
@@ -80,10 +98,12 @@ class _ShakeScreenState extends State<ShakeScreen> {
   Future<void> _talkStart() async {
     if (_talking || _dropping) return;
     setState(() => _talking = true);
+    _startTalkTimer();
     final s = AppScope.of(context);
     if (s.settings.haptics) HapticFeedback.selectionClick();
     final ok = await s.voice.start();
     if (!ok && mounted) {
+      _stopTalkTimer();
       setState(() => _talking = false);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('無法使用麥克風，請直接搖籤或按「說完了，落籤」')));
     }
@@ -92,11 +112,23 @@ class _ShakeScreenState extends State<ShakeScreen> {
   void _talkEnd() {
     if (!_talking) return;
     _talking = false;
+    _stopTalkTimer();
     _dropStick(); // 放開＝問題講完（不管搖了幾次）
+  }
+
+  /// 「停止錄音，改打字」：把聽到的字帶回提問頁，改用打字繼續。
+  Future<void> _switchToTyping() async {
+    if (_dropping) return;
+    _talking = false;
+    _stopTalkTimer();
+    final heard = await AppScope.of(context).voice.stop();
+    if (!mounted) return;
+    context.pop([widget.session.question, heard].where((t) => t.isNotEmpty).join('，'));
   }
 
   @override
   void dispose() {
+    _stopTalkTimer();
     HardwareKeyboard.instance.removeHandler(_onKey);
     // 沒抽完就返回提問頁時，也要關掉麥克風。
     if (_voice && !_dropping) _voiceInput?.stop();
@@ -167,7 +199,12 @@ class _ShakeScreenState extends State<ShakeScreen> {
         children: [
           const SizedBox(height: 8),
           if (_voice && !_dropping)
-            _LiveTranscript(voice: AppScope.of(context).voice, typed: session.question, color: fg)
+            _LiveTranscript(
+              voice: AppScope.of(context).voice,
+              typed: session.question,
+              color: fg,
+              seconds: _talking ? _talkSeconds : null,
+            )
           else
             Text(
               session.question.isEmpty ? session.category.label : '「${session.question}」',
@@ -250,6 +287,11 @@ class _ShakeScreenState extends State<ShakeScreen> {
                 ],
               ),
             ),
+            TextButton(
+              onPressed: _dropping ? null : _switchToTyping,
+              style: TextButton.styleFrom(foregroundColor: fg, minimumSize: const Size(44, 48)),
+              child: const Text('停止錄音，改打字'),
+            ),
           ] else ...[
             if (_needMotionPermission)
               FilledButton(onPressed: _dropping ? null : _askMotion, child: const Text('允許動作感測，開始搖籤'))
@@ -274,10 +316,13 @@ class _ShakeScreenState extends State<ShakeScreen> {
 
 /// 語音模式：邊搖邊顯示即時辨識的文字。
 class _LiveTranscript extends StatelessWidget {
-  const _LiveTranscript({required this.voice, required this.typed, required this.color});
+  const _LiveTranscript({required this.voice, required this.typed, required this.color, this.seconds});
   final VoiceInput voice;
   final String typed;
   final Color color;
+
+  /// 按住說話中：已經說了幾秒；沒在說話時是 null。
+  final int? seconds;
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +343,18 @@ class _LiveTranscript extends StatelessWidget {
                     Icon(voice.listening ? Icons.mic : Icons.mic_none, size: 18, color: color),
                     const SizedBox(width: 6),
                     Text(voice.listening ? '正在聆聽…' : '麥克風已停止', style: text.bodySmall?.copyWith(color: color)),
+                    if (seconds != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${seconds! ~/ 60}:${(seconds! % 60).toString().padLeft(2, '0')}',
+                        semanticsLabel: '已錄 $seconds 秒',
+                        style: text.bodySmall?.copyWith(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
+                      ),
+                    ],
+                    if (voice.listening && voice.level != null) ...[
+                      const SizedBox(width: 10),
+                      _LevelBars(level: voice.level!, color: color),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -313,6 +370,39 @@ class _LiveTranscript extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// 小小的音量條：五根，依音量由左到右亮起、中間高兩側低。
+class _LevelBars extends StatelessWidget {
+  const _LevelBars({required this.level, required this.color});
+  final double level;
+  final Color color;
+
+  static const _heights = [6.0, 10.0, 14.0, 10.0, 6.0];
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Row(
+        key: const ValueKey('voice-level'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (var i = 0; i < _heights.length; i++)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              margin: const EdgeInsets.symmetric(horizontal: 1.5),
+              width: 3,
+              height: 3 + _heights[i] * (level * 1.4 - i * 0.12).clamp(0.0, 1.0),
+              decoration: BoxDecoration(
+                color: level * 5 > i ? Palette.vermilion : color.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

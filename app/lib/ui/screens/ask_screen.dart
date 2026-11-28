@@ -64,7 +64,14 @@ class _AskScreenState extends State<AskScreen> {
       season: s.settings.currentSeason(),
       question: _question.text.trim(),
     );
-    context.push('/shake', extra: session);
+    final back = await context.push<Object?>('/shake', extra: session);
+    // 搖籤頁按「停止錄音，改打字」：帶回聽到的字，改成打字模式讓人接著改。
+    if (back is String && mounted) {
+      setState(() {
+        _input = InputMode.typing;
+        _question.text = back.length > maxQuestionChars ? back.substring(0, maxQuestionChars) : back;
+      });
+    }
   }
 
   @override
