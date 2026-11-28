@@ -48,7 +48,7 @@ export async function POST(request: Request): Promise<Response> {
     return json(503, "unavailable", "解籤服務尚未設定");
   }
 
-  const limit = await checkRequest(clientKey(request));
+  const limit = await checkRequest(await clientKey(request));
   if (!limit.ok) {
     const res = json(429, "rate_limited", LIMIT_MESSAGES[limit.reason]);
     res.headers.set("Retry-After", String(limit.retryAfter));

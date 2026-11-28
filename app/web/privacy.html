@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>心想事 隱私權政策</title>
+<meta name="theme-color" content="#F1EADC">
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; background: #F1EADC; color: #2A221C;
+         font-family: "Noto Serif TC", "PingFang TC", "Microsoft JhengHei", serif; line-height: 1.75; }
+  main { max-width: 680px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 28px 0 8px; color: #8E2B1E; }
+  p, li { font-size: 1rem; }
+  ul { padding-left: 1.3em; margin: 0 0 8px; }
+  a { color: #8E2B1E; }
+  .back { display: inline-block; margin-top: 32px; }
+</style>
+</head>
+<body>
+<main id="doc"><p>載入中…</p></main>
+<script>
+  // 內容與 App 內「設定 → 隱私權政策」同一份：assets/docs/privacy.txt
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  fetch("assets/assets/docs/privacy.txt", { cache: "no-cache" })
+    .then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then((src) => {
+      let html = "", inList = false;
+      for (const raw of src.split("\n")) {
+        const line = raw.trimEnd();
+        const li = line.startsWith("- ");
+        if (inList && !li) { html += "</ul>"; inList = false; }
+        if (!line) continue;
+        if (line.startsWith("## ")) html += `<h2>${esc(line.slice(3))}</h2>`;
+        else if (line.startsWith("# ")) { html += `<h1>${esc(line.slice(2))}</h1>`; document.title = line.slice(2); }
+        else if (li) { if (!inList) { html += "<ul>"; inList = true; } html += `<li>${esc(line.slice(2))}</li>`; }
+        else html += `<p>${esc(line)}</p>`;
+      }
+      if (inList) html += "</ul>";
+      document.getElementById("doc").innerHTML = html + '<a class="back" href="./">回到心想事</a>';
+    })
+    .catch(() => { document.getElementById("doc").innerHTML = "<p>暫時無法載入，請重新整理頁面。</p>"; });
+</script>
+</body>
+</html>

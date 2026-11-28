@@ -8,6 +8,7 @@ import '../../app/theme.dart';
 import '../widgets/common.dart';
 import '../widgets/lantern.dart';
 import '../widgets/season_scaffold.dart';
+import '../widgets/summer_decor.dart';
 
 /// 01 首頁：雷門大燈籠、開始求籤、紀錄、設定。
 class HomeScreen extends StatelessWidget {
@@ -29,6 +30,7 @@ class HomeScreen extends StatelessWidget {
             scene: 1,
             noLantern: true,
             smoke: true,
+            decor: season.isSummer ? const _EaveChime() : null,
             child: LayoutBuilder(
               builder: (context, box) => Column(
                 children: [
@@ -126,6 +128,21 @@ class _LanternState extends State<_Lantern> with SingleTickerProviderStateMixin 
           ],
         );
       },
+    );
+  }
+}
+
+/// 夏季：簷下掛一只風鈴，從畫面頂端垂下。
+class _EaveChime extends StatelessWidget {
+  const _EaveChime();
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return Positioned(
+      top: 0,
+      left: 28,
+      child: WindChime(height: mq.size.height * 0.2, rope: mq.padding.top + 24),
     );
   }
 }

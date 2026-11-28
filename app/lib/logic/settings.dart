@@ -80,6 +80,10 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 第一次用語音提問前，已經說明過麥克風的用途（BUILD_PLAN 第 7 節）。
+  bool get micExplained => _prefs.getBool('micExplained') ?? false;
+  set micExplained(bool v) => _prefs.setBool('micExplained', v);
+
   Season currentSeason([DateTime? now]) =>
       resolveSeason(seasonMode, now ?? DateTime.now(), fixedSeason);
 }

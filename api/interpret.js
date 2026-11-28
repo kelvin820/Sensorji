@@ -3731,9 +3731,16 @@ var LIMIT_MESSAGES = {
   day: "\u4ECA\u5929\u6C42\u7C64\u7684\u6B21\u6578\u5DF2\u7D93\u6EFF\u4E86\uFF0C\u660E\u5929\u518D\u4F86\u5427",
   global: "\u4ECA\u5929\u7684\u89E3\u7C64\u670D\u52D9\u5DF2\u7D93\u984D\u6EFF\uFF0C\u8ACB\u660E\u5929\u518D\u8A66"
 };
-function clientKey(req) {
+function clientIp(req) {
   const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return `ip:${fwd || req.headers.get("x-real-ip") || "unknown"}`;
+  return fwd || req.headers.get("x-real-ip") || "unknown";
+}
+async function clientKey(req) {
+  const salt = process.env.RATE_LIMIT_SALT ?? process.env.GEMINI_API_KEY ?? process.env.NVIDIA_API_KEY ?? "";
+  const data = new TextEncoder().encode(`${salt}|${clientIp(req)}`);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  const hex = Array.from(digest.subarray(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+  return `ip:${hex}`;
 }
 
 // server/lib/sections.ts
@@ -3842,7 +3849,7 @@ async function POST(request) {
     console.error("interpret: no provider key configured");
     return json(503, "unavailable", "\u89E3\u7C64\u670D\u52D9\u5C1A\u672A\u8A2D\u5B9A");
   }
-  const limit = await checkRequest(clientKey(request));
+  const limit = await checkRequest(await clientKey(request));
   if (!limit.ok) {
     const res = json(429, "rate_limited", LIMIT_MESSAGES[limit.reason]);
     res.headers.set("Retry-After", String(limit.retryAfter));

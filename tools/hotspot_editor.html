@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>熱區校對</title>
+<!--
+  淺草寺籤紙熱區校對工具（BUILD_PLAN 第 6 節 ⑤）。
+  從專案根目錄啟動：python -m http.server 3001 --bind 127.0.0.1
+  再開 http://127.0.0.1:3001/tools/hotspot_editor.html
+
+  每張籤紙的熱區是 5 欄（判語＋四句，由左到右）共用的 6 條直線，加上上下兩條橫線。
+  拖曳線條微調；方向鍵移動選中的線（Shift 加大步距）；←／→ 以外用 PageUp／PageDown 換籤。
+  修改會先存在瀏覽器（localStorage），按「下載 JSON」得到新的 hotspots_sensoji.json，
+  覆蓋 app/assets/data/hotspots_sensoji.json 後重新建置 App。
+-->
+<style>
+  :root { --ink:#2A221C; --paper:#F1EADC; --red:#B33A26; --blue:#1F6FB2; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "Microsoft JhengHei", sans-serif; background:#ddd5c6; color:var(--ink); }
+  header { position:sticky; top:0; z-index:2; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+           padding:10px 16px; background:var(--paper); border-bottom:1px solid #c9bda8; }
+  header b { font-size:1.1rem; min-width:6em; }
+  button, input { font: inherit; padding:4px 10px; }
+  .edited { color: var(--red); font-weight: 600; }
+  .hint { font-size: .85rem; color:#6b5d4c; width:100%; }
+  main { display:flex; justify-content:center; padding:16px; }
+  #stage { position:relative; user-select:none; touch-action:none; box-shadow:0 4px 16px #0003; }
+  #stage img { display:block; height:calc(100vh - 140px); min-height:420px; }
+  .rect { position:absolute; pointer-events:none; border:1px solid #0000; }
+  .rect span { position:absolute; top:2px; left:2px; font-size:11px; background:#fffc; padding:0 3px; }
+  .v, .h { position:absolute; background:var(--blue); opacity:.75; }
+  .v { width:2px; cursor:ew-resize; } .h { height:2px; cursor:ns-resize; }
+  .v::before, .h::before { content:""; position:absolute; inset:-6px; } /* 加大可抓範圍 */
+  .sel { background:var(--red); opacity:1; }
+</style>
+</head>
+<body>
+<header>
+  <button id="prev" title="PageUp">◀ 上一張</button>
+  <b id="title">第 1 籤</b>
+  <button id="next" title="PageDown">下一張 ▶</button>
+  <input id="jump" type="number" min="1" max="100" style="width:5em" placeholder="跳到">
+  <button id="reset">還原這張</button>
+  <button id="download">下載 JSON</button>
+  <span id="status"></span>
+  <div class="hint">拖曳藍線；點一下線條後可用方向鍵微調（Shift ×10）。紅字表示這張改過。</div>
+</header>
+<main><div id="stage"><img id="img" alt="籤紙"></div></main>
+<script>
+const KEY = "sensoji-hotspot-edits";
+const NAMES = ["判語", "第 4 句", "第 3 句", "第 2 句", "第 1 句"]; // 由左到右
+let base = {}, edits = {}, n = 1, sel = null;
+try { edits = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { edits = {}; }
+
+const $ = (id) => document.getElementById(id);
+const r4 = (v) => Math.round(v * 10000) / 10000;
+
+// JSON ⇄ 線條：xs 為 6 條直線（左到右），y0/y1 為上下。
+function toLines(e) {
+  const rects = [e.judgment, ...e.lines.slice().reverse()];
+  return { xs: [rects[0][0], ...rects.map((r) => r[2])], y0: rects[0][1], y1: rects[0][3] };
+}
+function fromLines({ xs, y0, y1 }) {
+  const rect = (i) => [r4(xs[i]), r4(y0), r4(xs[i + 1]), r4(y1)];
+  return { lines: [4, 3, 2, 1].map(rect), judgment: rect(0) };
+}
+const current = () => edits[n] ? structuredClone(edits[n]) : toLines(base[n]);
+
+function save(l) {
+  const same = JSON.stringify(fromLines(l)) === JSON.stringify(base[n]);
+  if (same) delete edits[n]; else edits[n] = l;
+  try { localStorage.setItem(KEY, JSON.stringify(edits)); } catch {}
+  draw();
+}
+
+function draw() {
+  const l = current(), stage = $("stage"), W = $("img").clientWidth, H = $("img").clientHeight;
+  stage.querySelectorAll(".rect,.v,.h").forEach((e) => e.remove());
+  $("title").textContent = `第 ${n} 籤`;
+  $("title").className = edits[n] ? "edited" : "";
+  $("status").textContent = `已修改 ${Object.keys(edits).length} 張`;
+  for (let i = 0; i < 5; i++) {
+    const d = document.createElement("div");
+    d.className = "rect";
+    Object.assign(d.style, { left: l.xs[i] * W + "px", width: (l.xs[i + 1] - l.xs[i]) * W + "px",
+      top: l.y0 * H + "px", height: (l.y1 - l.y0) * H + "px",
+      background: i === 0 ? "#1f6fb21a" : i % 2 ? "#b33a261a" : "#b33a260d" });
+    d.innerHTML = `<span>${NAMES[i]}</span>`;
+    stage.append(d);
+  }
+  l.xs.forEach((x, i) => addLine("v", i, { left: x * W - 1 + "px", top: l.y0 * H + "px", height: (l.y1 - l.y0) * H + "px" }));
+  ["y0", "y1"].forEach((k) => addLine("h", k, { top: l[k] * H - 1 + "px", left: l.xs[0] * W + "px", width: (l.xs[5] - l.xs[0]) * W + "px" }));
+}
+
+function addLine(kind, id, style) {
+  const d = document.createElement("div");
+  d.className = kind + (sel && sel.kind === kind && sel.id === id ? " sel" : "");
+  Object.assign(d.style, style);
+  d.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault(); sel = { kind, id }; draw();
+    const rect = $("img").getBoundingClientRect();
+    const move = (e) => {
+      const l = current();
+      if (kind === "v") {
+        const x = (e.clientX - rect.left) / rect.width;
+        const lo = id > 0 ? l.xs[id - 1] + 0.005 : 0, hi = id < 5 ? l.xs[id + 1] - 0.005 : 1;
+        l.xs[id] = Math.min(hi, Math.max(lo, x));
+      } else {
+        const y = (e.clientY - rect.top) / rect.height;
+        l[id] = id === "y0" ? Math.min(l.y1 - 0.01, Math.max(0, y)) : Math.max(l.y0 + 0.01, Math.min(1, y));
+      }
+      save(l);
+    };
+    const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); };
+    addEventListener("pointermove", move); addEventListener("pointerup", up);
+  });
+  $("stage").append(d);
+}
+
+function go(k) {
+  n = Math.min(100, Math.max(1, k)); sel = null;
+  $("img").src = `../app/assets/slips/sensoji_${String(n).padStart(3, "0")}.webp`;
+}
+
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "PageDown") return go(n + 1);
+  if (e.key === "PageUp") return go(n - 1);
+  if (!sel) return;
+  const step = (e.shiftKey ? 10 : 1) / 1000, l = current();
+  if (sel.kind === "v" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) l.xs[sel.id] += e.key === "ArrowLeft" ? -step : step;
+  else if (sel.kind === "h" && (e.key === "ArrowUp" || e.key === "ArrowDown")) l[sel.id] += e.key === "ArrowUp" ? -step : step;
+  else return;
+  e.preventDefault(); save(l);
+});
+
+$("img").addEventListener("load", draw);
+addEventListener("resize", draw);
+$("prev").onclick = () => go(n - 1);
+$("next").onclick = () => go(n + 1);
+$("jump").onchange = (e) => go(+e.target.value || 1);
+$("reset").onclick = () => { delete edits[n]; save(toLines(base[n])); };
+$("download").onclick = () => {
+  const out = {};
+  for (const k of Object.keys(base)) out[k] = edits[k] ? fromLines(edits[k]) : base[k];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out)], { type: "application/json" }));
+  a.download = "hotspots_sensoji.json"; a.click();
+};
+
+fetch("../app/assets/data/hotspots_sensoji.json").then((r) => r.json()).then((d) => { base = d; go(1); })
+  .catch(() => { $("status").textContent = "讀不到 hotspots_sensoji.json：請從專案根目錄啟動 http.server"; });
+</script>
+</body>
+</html>

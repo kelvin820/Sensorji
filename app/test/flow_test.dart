@@ -268,7 +268,7 @@ void main() {
 
   testWidgets('語音提問：按住音量鍵說話、即時顯示，放開就落籤並填進問題框', (tester) async {
     final voice = FakeVoice('明年換工作好嗎');
-    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: voice);
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice', 'micExplained': true}, voice: voice);
     await pumpApp(tester, s);
 
     await tester.tap(find.text('開始求籤'));
@@ -293,7 +293,7 @@ void main() {
   });
 
   testWidgets('語音提問：也可以按「說完了，落籤」', (tester) async {
-    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: FakeVoice(''));
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice', 'micExplained': true}, voice: FakeVoice(''));
     await pumpApp(tester, s);
     await tester.tap(find.text('開始求籤'));
     await tester.pumpAndSettle();
@@ -309,7 +309,7 @@ void main() {
 
   testWidgets('語音提問：顯示錄音秒數與音量條，可以「停止錄音，改打字」', (tester) async {
     final voice = FakeVoice('下個月搬家順利嗎', fakeLevel: 0.6);
-    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: voice);
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice', 'micExplained': true}, voice: voice);
     await pumpApp(tester, s);
     await tester.tap(find.text('開始求籤'));
     await tester.pumpAndSettle();
@@ -338,9 +338,59 @@ void main() {
     expect(find.byType(DrawerCabinet), findsNothing, reason: '沒有落籤');
   });
 
+  testWidgets('第一次用說的：先說明麥克風用途；選「改用打字」就不要求權限', (tester) async {
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: FakeVoice('x'));
+    await pumpApp(tester, s);
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('失物'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('我們不會保存錄音'), findsOneWidget);
+    await tester.tap(find.text('改用打字'));
+    await tester.pumpAndSettle();
+    expect(find.text('開始搖籤'), findsOneWidget, reason: '留在提問頁、改成打字');
+    expect(s.settings.micExplained, isFalse, reason: '下次選說的還要再說明');
+
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    expect(find.text('拿穩手機，上下輕搖'), findsOneWidget, reason: '以打字模式進搖籤頁');
+  });
+
+  testWidgets('第一次用說的：按「好，繼續」後不再說明', (tester) async {
+    final s = await makeServices(FixedDraw(1), prefs: {'defaultInput': 'voice'}, voice: FakeVoice('x'));
+    await pumpApp(tester, s);
+    await tester.tap(find.text('開始求籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('失物'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('開始搖籤'));
+    await tester.tap(find.text('開始搖籤'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('好，繼續'));
+    await tester.pumpAndSettle();
+    expect(s.settings.micExplained, isTrue);
+    expect(find.text('按住音量鍵說出你的問題，邊說邊搖'), findsOneWidget);
+  });
+
+  testWidgets('設定頁可以打開隱私權政策', (tester) async {
+    final s = await makeServices(FixedDraw(1));
+    await pumpApp(tester, s);
+    await tester.tap(find.byTooltip('設定'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('隱私權政策'), 200);
+    await tester.tap(find.text('隱私權政策'));
+    await tester.pumpAndSettle();
+    expect(find.text('心想事 隱私權政策'), findsOneWidget);
+    expect(find.text('留在你裝置上的資料'), findsOneWidget);
+  });
+
   testWidgets('語音無法使用時改回打字', (tester) async {
     final s = await makeServices(FixedDraw(1),
-        prefs: {'defaultInput': 'voice'}, voice: FakeVoice('', available: false));
+        prefs: {'defaultInput': 'voice', 'micExplained': true}, voice: FakeVoice('', available: false));
     await pumpApp(tester, s);
     await tester.tap(find.text('開始求籤'));
     await tester.pumpAndSettle();

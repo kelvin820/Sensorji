@@ -131,12 +131,23 @@ export const LIMIT_MESSAGES: Record<LimitReason, string> = {
   global: "今天的解籤服務已經額滿，請明天再試",
 };
 
+/** 取用戶端 IP（Vercel 會設 x-forwarded-for）。 */
+export function clientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return fwd || req.headers.get("x-real-ip") || "unknown";
+}
+
 /**
- * 取用戶端 IP（Vercel 會設 x-forwarded-for）。只拿來當限流鍵，不記錄。
+ * 限流鍵：IP 加上伺服器端的秘密值做 SHA-256，只取前 16 碼。Redis 裡不存 IP 原文
+ * （隱私權政策：IP 只以無法還原的雜湊暫存，最長一天）。
+ * 秘密值用 RATE_LIMIT_SALT；沒設就借用已設定的供應商金鑰（一樣只在伺服器上）。
  * 不用 App 自報的裝置 ID：那可以任意偽造來繞過限制。
  * 行動網路常多人共用 IP，上限請依實際流量用環境變數調整。
  */
-export function clientKey(req: Request): string {
-  const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return `ip:${fwd || req.headers.get("x-real-ip") || "unknown"}`;
+export async function clientKey(req: Request): Promise<string> {
+  const salt = process.env.RATE_LIMIT_SALT ?? process.env.GEMINI_API_KEY ?? process.env.NVIDIA_API_KEY ?? "";
+  const data = new TextEncoder().encode(`${salt}|${clientIp(req)}`);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", data));
+  const hex = Array.from(digest.subarray(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+  return `ip:${hex}`;
 }

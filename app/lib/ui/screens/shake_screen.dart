@@ -17,6 +17,7 @@ import '../../logic/voice.dart';
 import '../../logic/web_device.dart';
 import '../widgets/season_scaffold.dart';
 import '../widgets/shaker.dart';
+import '../widgets/summer_decor.dart';
 
 /// 需要的有效晃動次數（BUILD_PLAN 第 5 節：約 5–8 次）。
 const shakesToDraw = 6;
@@ -58,6 +59,10 @@ class _ShakeScreenState extends State<ShakeScreen> {
 
   bool get _voice => widget.session.inputMode == InputMode.voice;
   VoiceInput? _voiceInput;
+
+  /// 夏季的風鈴：搖籤時跟著晃、響。
+  final _chime = GlobalKey<PendulumState>();
+  DateTime _lastFurin = DateTime(0);
 
   /// 正按著音量鍵或「按住說話」。
   bool _talking = false;
@@ -142,6 +147,15 @@ class _ShakeScreenState extends State<ShakeScreen> {
     if (s.settings.haptics) Haptics.shake(intensity);
     Sounds.clack(intensity); // 竹籤在筒裡互碰
     _shaker.currentState?.kick(intensity);
+    if (widget.session.season.isSummer) {
+      _chime.currentState?.kick(intensity);
+      // 風鈴聲不要每下都響：間隔至少 1.2 秒，搖得用力才響
+      final now = DateTime.now();
+      if (intensity > 0.4 && now.difference(_lastFurin) > const Duration(milliseconds: 1200)) {
+        _lastFurin = now;
+        Sounds.play(Sfx.furin, volume: 0.35 + 0.4 * intensity);
+      }
+    }
     setState(() => _count = min(_count + 1, shakesToDraw));
     // 語音模式不看搖晃次數：放開音量鍵（或按「說完了」）才落籤。
     if (!_voice && _count >= shakesToDraw) _dropStick();
@@ -194,6 +208,18 @@ class _ShakeScreenState extends State<ShakeScreen> {
     return SeasonScaffold(
       season: session.season,
       scene: 3,
+      decor: session.season.isSummer
+          ? Builder(
+              builder: (context) {
+                final mq = MediaQuery.of(context);
+                return Positioned(
+                  top: 0,
+                  right: 22,
+                  child: WindChime(pendulumKey: _chime, height: mq.size.height * 0.17, rope: mq.padding.top + 64),
+                );
+              },
+            )
+          : null,
       appBar: AppBar(title: Text(title), foregroundColor: fg),
       child: Column(
         children: [

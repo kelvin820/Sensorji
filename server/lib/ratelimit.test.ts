@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { checkRequest, clientKey, LIMIT_MESSAGES, resetMemoryLimiter } from "./ratelimit.ts";
+import { checkRequest, clientIp, clientKey, LIMIT_MESSAGES, resetMemoryLimiter } from "./ratelimit.ts";
 
 const realFetch = globalThis.fetch;
 const ENV = [
@@ -118,6 +118,15 @@ describe("速率限制", () => {
   it("每種上限都有可以直接顯示的中文訊息；IP 取 x-forwarded-for 第一個", () => {
     for (const m of Object.values(LIMIT_MESSAGES)) assert.match(m, /[一-鿿]/);
     const req = new Request("https://x", { headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" } });
-    assert.equal(clientKey(req), "ip:9.9.9.9");
+    assert.equal(clientIp(req), "9.9.9.9");
+  });
+
+  it("限流鍵是 IP 的雜湊，不含 IP 原文；同一 IP 得到同一把鍵", async () => {
+    const a = (ip: string) => new Request("https://x", { headers: { "x-forwarded-for": ip } });
+    const k1 = await clientKey(a("9.9.9.9"));
+    assert.match(k1, /^ip:[0-9a-f]{16}$/);
+    assert.ok(!k1.includes("9.9.9.9"));
+    assert.equal(await clientKey(a("9.9.9.9")), k1);
+    assert.notEqual(await clientKey(a("9.9.9.8")), k1);
   });
 });

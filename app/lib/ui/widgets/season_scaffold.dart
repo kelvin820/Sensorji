@@ -18,6 +18,7 @@ class SeasonScaffold extends StatelessWidget {
     this.overlay = true,
     this.appBar,
     this.foreground,
+    this.decor,
   });
 
   final Season season;
@@ -30,6 +31,9 @@ class SeasonScaffold extends StatelessWidget {
 
   /// 蓋在整個畫面最上層的裝飾（例如好籤的「成」燈籠），以全螢幕座標排版。
   final Widget? foreground;
+
+  /// 背景上的掛飾（夏季風鈴、酸漿），在粒子之上、內容之下，以全螢幕座標排版。
+  final Widget? decor;
   final Widget child;
 
   @override
@@ -66,6 +70,7 @@ class SeasonScaffold extends StatelessWidget {
           if (particles && !reduced && scene != null)
             IgnorePointer(child: ParticleLayer(sprites: season.particles)),
           if (smoke && !reduced) const IgnorePointer(child: SmokeLayer()),
+          ?decor,
           DefaultTextStyle.merge(
             style: TextStyle(color: look.text),
             child: IconTheme.merge(

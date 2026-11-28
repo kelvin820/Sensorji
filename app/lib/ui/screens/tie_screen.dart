@@ -7,6 +7,7 @@ import '../../logic/records.dart';
 import '../../logic/sounds.dart';
 import '../widgets/common.dart';
 import '../widgets/season_scaffold.dart';
+import '../widgets/summer_decor.dart';
 import '../widgets/tie_fold.dart';
 
 /// 08 凶籤・結籤（僅淺草寺，分鏡 ⑥）：往左拖把籤紙折成細條 → 繫上籤架、繩結收緊 → 畫面微暗。
@@ -50,6 +51,7 @@ class _TieScreenState extends State<TieScreen> {
       season: r.season,
       scene: 6,
       particles: false,
+      decor: r.season.isSummer ? const HozukiCorner() : null,
       appBar: AppBar(title: const Text('結籤'), foregroundColor: fg),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),

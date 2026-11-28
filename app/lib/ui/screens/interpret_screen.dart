@@ -10,6 +10,7 @@ import '../../logic/interpret_client.dart';
 import '../../logic/records.dart';
 import '../widgets/common.dart';
 import '../widgets/season_scaffold.dart';
+import '../widgets/summer_decor.dart';
 
 /// 07 AI 解籤。紀錄裡已有解說就直接顯示（09 紀錄重看），沒有就向後端要。
 class InterpretScreen extends StatefulWidget {
@@ -127,6 +128,7 @@ class _InterpretScreenState extends State<InterpretScreen> {
       season: r.season,
       scene: 5,
       particles: false,
+      decor: r.season.isSummer ? const HozukiCorner() : null,
       appBar: AppBar(
         title: Text(drawTitle(r.number, r.tag)),
         foregroundColor: fg,

@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../app/scope.dart';
@@ -6,6 +7,7 @@ import '../../logic/draw.dart';
 import '../../logic/season.dart';
 import '../../logic/settings.dart';
 import '../../logic/shake.dart';
+import '../../logic/web_device.dart';
 import '../widgets/common.dart';
 import '../widgets/season_scaffold.dart';
 
@@ -29,6 +31,9 @@ class SettingsScreen extends StatelessWidget {
               _choice<Deck>(context, '預設籤種', Deck.values, st.defaultDeck, (v) => v.label, (v) => st.defaultDeck = v),
               _choice<JiaobeiMode>(context, '擲筊確認（六十甲子籤）', JiaobeiMode.values, st.jiaobei, (v) => v.label,
                   (v) => st.jiaobei = v),
+              if (voiceSupported)
+                _choice<InputMode>(context, '預設提問方式', InputMode.values, st.defaultInput, (v) => v.label,
+                    (v) => st.defaultInput = v),
               _choice<ShakeSensitivity>(context, '搖晃靈敏度', ShakeSensitivity.values, st.sensitivity, (v) => v.label,
                   (v) => st.sensitivity = v),
               SwitchListTile(
@@ -64,6 +69,13 @@ class SettingsScreen extends StatelessWidget {
                 title: const Text('清除所有紀錄'),
                 textColor: Theme.of(context).colorScheme.primary,
                 onTap: () => _confirmClear(context),
+              ),
+            ]),
+            _Group('關於', [
+              ListTile(
+                title: const Text('隱私權政策'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/privacy'),
               ),
             ]),
             const SizedBox(height: 16),

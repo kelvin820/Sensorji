@@ -34,6 +34,10 @@ Future<bool> requestMotionPermission() async {
   }
 }
 
+/// 瀏覽器有 Web Speech API（Chrome、Edge、Safari）才提供語音提問；Firefox 沒有。
+bool get voiceSupported =>
+    globalContext.has('SpeechRecognition') || globalContext.has('webkitSpeechRecognition');
+
 /// 沒有觸控點：當作桌機（滑鼠／鍵盤），搖籤改用點按或空白鍵。
 bool get isDesktopWeb {
   final nav = globalContext['navigator'] as JSObject?;

@@ -243,6 +243,23 @@ def jiao(rng, heavy):
     return out[: int(sec * SR)]
 
 
+def furin(rng):
+    """江戶風鈴（玻璃）：舌片被風吹動，連敲兩三下；玻璃音高、餘韻短而亮。"""
+    sec = 2.0
+    out = zeros(sec)
+    f0 = 2870.0
+    t = 0.0
+    for k in range(3):
+        bell = zeros(1.6)
+        for ratio, dec, amp in ((1.0, 0.55, 1.0), (1.0035, 0.5, 0.6), (2.41, 0.22, 0.35), (4.07, 0.09, 0.2)):
+            mix(bell, mode(f0 * ratio, dec, 1.6, amp, rng.uniform(0, TAU), attack=0.0006))
+        click = envelope(noise(int(0.004 * SR), rng), lambda t, _: math.exp(-t / 0.0008))
+        mix(bell, biquad(click, "hp", 5000), gain=0.25)
+        mix(out, bell, at=t, gain=(1.0, 0.55, 0.3)[k])
+        t += rng.uniform(0.14, 0.24)
+    return out[: int(sec * SR)]
+
+
 def main():
     rng = random.Random(20261128)
     for i, pitch in enumerate((1.0, 1.12, 0.9), start=1):
@@ -255,6 +272,7 @@ def main():
     write("chime", chime(rng), peak=0.55, tail=0.8)
     write("jiao_heavy", jiao(rng, True), peak=0.9)
     write("jiao_light", jiao(rng, False), peak=0.55)
+    write("furin", furin(rng), peak=0.45, tail=0.6)
 
 
 if __name__ == "__main__":

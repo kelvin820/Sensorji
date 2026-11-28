@@ -8,6 +8,7 @@ import '../ui/screens/interpret_screen.dart';
 import '../ui/screens/jiaobei_screen.dart';
 import '../ui/screens/number_screen.dart';
 import '../ui/screens/poem_screen.dart';
+import '../ui/screens/privacy_screen.dart';
 import '../ui/screens/records_screen.dart';
 import '../ui/screens/settings_screen.dart';
 import '../ui/screens/shake_screen.dart';
@@ -29,6 +30,7 @@ GoRouter buildRouter() {
     routes: [
       GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/ask', builder: (_, _) => const AskScreen()),
+      GoRoute(path: '/privacy', builder: (_, _) => const PrivacyScreen()),
       GoRoute(path: '/shake', builder: (_, s) => withSession(s, (x) => ShakeScreen(session: x))),
       // 籤號落出後慢慢淡入籤櫃（使用者回饋：落籤的畫面太快換掉）。
       GoRoute(

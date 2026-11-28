@@ -20,7 +20,8 @@ enum Sfx {
   fold('fold', 3),
   chime('chime'),
   jiaoHeavy('jiao_heavy', 2),
-  jiaoLight('jiao_light', 3);
+  jiaoLight('jiao_light', 3),
+  furin('furin', 2);
 
   const Sfx(this.file, [this.voices = 1]);
   final String file;

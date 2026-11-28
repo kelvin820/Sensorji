@@ -6,6 +6,7 @@ import '../../app/theme.dart';
 import '../../data/models.dart';
 import '../../logic/session.dart';
 import '../../logic/settings.dart';
+import '../../logic/web_device.dart';
 import '../widgets/common.dart';
 import '../widgets/season_scaffold.dart';
 
@@ -32,7 +33,8 @@ class _AskScreenState extends State<AskScreen> {
     if (_init) return;
     final settings = AppScope.of(context).settings;
     _deck = settings.defaultDeck;
-    _input = settings.defaultInput;
+    // 瀏覽器不支援語音辨識（例如 Firefox）：不提供「說的」，一律打字。
+    _input = voiceSupported ? settings.defaultInput : InputMode.typing;
     _init = true;
   }
 
@@ -45,6 +47,16 @@ class _AskScreenState extends State<AskScreen> {
   Future<void> _start() async {
     final s = AppScope.of(context);
     if (_input == InputMode.voice) {
+      // 第一次：先說明麥克風用來做什麼，再讓系統跳出權限要求。
+      if (!s.settings.micExplained) {
+        final go = await _explainMic();
+        if (!mounted) return;
+        if (go != true) {
+          if (go == false) setState(() => _input = InputMode.typing);
+          return;
+        }
+        s.settings.micExplained = true;
+      }
       // 先取得麥克風權限；真正收音是在搖籤頁按住音量鍵時（BUILD_PLAN 第 7 節）。
       final ok = await s.voice.prepare();
       s.voice.reset();
@@ -73,6 +85,24 @@ class _AskScreenState extends State<AskScreen> {
       });
     }
   }
+
+  /// true：繼續用說的；false：改用打字；null：關掉對話框，留在原地。
+  Future<bool?> _explainMic() => showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          icon: const Icon(Icons.mic_none),
+          title: const Text('用說的提問'),
+          content: const Text(
+            '接下來會請你允許使用麥克風。\n\n'
+            '只有在搖籤頁按住音量鍵（或「按住說話」）時才會收音，'
+            '聲音由手機或瀏覽器內建的語音辨識（Google）轉成文字，我們不會保存錄音。',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('改用打字')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('好，繼續')),
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +150,7 @@ class _AskScreenState extends State<AskScreen> {
               ),
             ),
           const SizedBox(height: 20),
+          if (voiceSupported) ...[
           _label(context, season, '提問方式'),
           SegmentedButton<InputMode>(
             segments: [
@@ -131,6 +162,7 @@ class _AskScreenState extends State<AskScreen> {
             style: SegmentedButton.styleFrom(backgroundColor: Palette.card),
           ),
           const SizedBox(height: 16),
+          ],
           QuestionCard(
             controller: _question,
             maxLength: maxQuestionChars,
